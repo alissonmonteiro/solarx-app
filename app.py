@@ -28,28 +28,13 @@ def money(v):
     d = Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{d:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def parse_number(value):
-    s = str(value).strip().replace(" ", "")
-    if not s:
-        return Decimal("0")
-    if "," in s and "." in s:
-        if s.rfind(",") > s.rfind("."):
-            s = s.replace(".", "").replace(",", ".")
-        else:
-            s = s.replace(",", "")
-    else:
-        s = s.replace(",", ".")
-    try:
-        return Decimal(s)
-    except InvalidOperation:
-        return Decimal("0")
-
 def sale_price(cost, margin=MARGEM_EQUIP):
-    return (cost * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    cost_dec = Decimal(str(cost or 0))
+    return (cost_dec * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 # DADOS SUPABASE
 def get_clients():
-    res = supabase.table("clients").select("*").order("name").execute()
+    res = supabase.table("clients").select("*").order("number").execute()
     return res.data or []
 
 def get_products():
@@ -68,7 +53,7 @@ def get_next_client_number():
         return max(START_CLIENT, int(res.data[0]["number"]) + 1)
     return START_CLIENT
 
-# GERAÇÃO DE PDF
+# GERAÇÃO DE PDF COM VERIFICAÇÃO RIGOROSA DE IMAGEM
 PDF_POS = {
     "proposal": (502.5, 802.0),
     "issue_date": (502.5, 791.6),
@@ -106,7 +91,10 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     c = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
 
-    base_img = "BASE_Orçamento_SOLARX_00_A.jpg"
+    # Busca o caminho absoluto no servidor Linux/Streamlit Cloud
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_img = os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")
+
     if os.path.exists(base_img):
         c.drawImage(ImageReader(base_img), 0, 0, width=w, height=h, preserveAspectRatio=False, mask="auto")
 
@@ -164,10 +152,15 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
 
     c.save()
     buffer.seek(0)
-    return buffer, total_equip, total_global
+    return buffer
 
-# NAVEGAÇÃO E INTERFACE
+# INTERFACE PRINCIPAL
 st.title("☀️ SolarX - Gestão de Orçamentos")
+
+# Alerta caso a imagem de fundo não esteja no repositório
+base_dir = os.path.dirname(os.path.abspath(__file__))
+if not os.path.exists(os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")):
+    st.warning("⚠️ Imagem de fundo 'BASE_Orçamento_SOLARX_00_A.jpg' não encontrada na raiz do GitHub. Faça o upload do ficheiro no GitHub para sair no PDF.")
 
 tab_quote, tab_clients, tab_products, tab_history = st.tabs([
     "📋 Novo Orçamento", "👥 Clientes", "📦 Equipamentos", "📂 Histórico na Nuvem"
@@ -176,7 +169,7 @@ tab_quote, tab_clients, tab_products, tab_history = st.tabs([
 # TAB 1: NOVO ORÇAMENTO
 with tab_quote:
     st.subheader("1. Dados Gerais")
-    col1, col2, col3 = st.columns([1, 3, 1])
+    col1, col2 = st.columns([1, 3])
     
     clients_list = get_clients()
     client_options = {f"{c['number']:04d} - {c['name']}": c for c in clients_list}
@@ -186,22 +179,16 @@ with tab_quote:
     with col2:
         selected_client_str = st.selectbox("Selecione o Cliente", options=[""] + list(client_options.keys()))
         selected_client = client_options.get(selected_client_str)
-    with col3:
-        st.write("")
-        st.write("")
-        if st.button("🔄 Recarregar Clientes"):
-            st.rerun()
 
     if selected_client:
         st.info(f"**NIF:** {selected_client.get('nif', '')} | **Telemóvel:** {selected_client.get('phone', '')} | **E-mail:** {selected_client.get('email', '')} | **Morada:** {selected_client.get('address', '')}")
 
-    st.subheader("2. Equipamentos e Serviços (Margem Automática 15%)")
+    st.subheader("2. Equipamentos e Serviços (Margem Automática +15%)")
     products_list = get_products()
-    product_options = {f"{p['ref'] or ''} - {p['description']}": p for p in products_list}
+    product_options = {f"{p.get('ref') or ''} - {p['description']}": p for p in products_list}
 
     items_data = []
     
-    # Criar 14 linhas de itens
     for i in range(14):
         c_p, c_q, c_c, c_pr, c_tot = st.columns([4, 1, 1.5, 1.5, 1.5])
         
@@ -219,6 +206,8 @@ with tab_quote:
         
         cost_dec = Decimal(str(cost))
         qty_dec = Decimal(str(qty))
+        
+        # CÁLCULO DIRETO COM MARGEM DE 15%
         price_dec = sale_price(cost_dec, MARGEM_EQUIP)
         total_line_dec = (price_dec * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         
@@ -238,7 +227,7 @@ with tab_quote:
             })
 
     st.subheader("3. Valores Finais e Observações")
-    c_inst, c_disc, c_obs = st.columns([1, 1, 2])
+    c_inst, c_disc, c_obs = st.columns([1.5, 1.5, 3])
     
     with c_inst:
         inst_cost_in = st.number_input("Instalação (€ Custo)", min_value=0.0, value=0.0, step=10.0)
@@ -250,6 +239,7 @@ with tab_quote:
     inst_cost_dec = Decimal(str(inst_cost_in))
     discount_dec = Decimal(str(discount_in))
 
+    # CÁLCULO DOS TOTAIS DA PROPOSTA
     subtotal_items = sum((it["line_total"] for it in items_data), Decimal("0"))
     taxable_equip = max(Decimal("0"), subtotal_items - discount_dec)
     total_equip = taxable_equip + (taxable_equip * IVA).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -258,16 +248,16 @@ with tab_quote:
     taxable_global = max(Decimal("0"), subtotal_items + inst_sale - discount_dec)
     total_global = taxable_global + (taxable_global * IVA).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    st.markdown(f"### 💰 Total Equipamentos (c/ IVA): `{money(total_equip)} €` | **TOTAL ORÇAMENTO:** `{money(total_global)} €`")
+    st.markdown("---")
+    st.markdown(f"### 💰 **Total Equipamentos (c/ IVA 23%):** `{money(total_equip)} €` | 🚀 **TOTAL GERAL PROPOSTA:** `{money(total_global)} €`")
 
     if st.button("💾 Salvar no Supabase e Gerar PDF", type="primary"):
         if not selected_client:
             st.error("Por favor, selecione um cliente.")
         elif not items_data:
-            st.error("Selecione pelo menos 1 equipamento.")
+            st.error("Selecione pelo menos 1 equipamento com quantidade superior a 0.")
         else:
             try:
-                # 1. Salvar orçamentos na nuvem
                 q_res = supabase.table("quotes").insert({
                     "proposal": int(proposal_num),
                     "client_id": selected_client["id"],
@@ -280,7 +270,6 @@ with tab_quote:
                 
                 qid = q_res.data[0]["id"]
 
-                # 2. Salvar itens na nuvem
                 items_payload = [{
                     "quote_id": qid,
                     "ref": it["ref"],
@@ -293,12 +282,11 @@ with tab_quote:
                 
                 supabase.table("quote_items").insert(items_payload).execute()
 
-                # 3. Gerar PDF para Download
-                pdf_buf, t_eq, t_glob = generate_pdf_buffer(selected_client, items_data, discount_dec, inst_cost_dec, notes_in, proposal_num)
+                pdf_buf = generate_pdf_buffer(selected_client, items_data, discount_dec, inst_cost_dec, notes_in, proposal_num)
                 
-                st.success("Orçamento salvo na nuvem com sucesso!")
+                st.success("Orçamento gravado com sucesso no Supabase!")
                 st.download_button(
-                    label="📄 Baixar Proposta em PDF",
+                    label="📄 Descarregar Proposta em PDF",
                     data=pdf_buf,
                     file_name=f"Orcamento_{proposal_num}_{selected_client['name'].replace(' ', '_')}.pdf",
                     mime="application/pdf"
@@ -306,13 +294,33 @@ with tab_quote:
             except Exception as e:
                 st.error(f"Erro ao gravar orçamento: {e}")
 
-# TAB 2: CLIENTES
+# TAB 2: CLIENTES (COM EDIÇÃO DIRETA DE TABELA)
 with tab_clients:
-    st.subheader("Gerenciar Clientes")
+    st.subheader("Gerenciar e Editar Clientes")
+    st.caption("💡 Pode alterar qualquer campo diretamente nas células abaixo e clicar em 'Salvar Alterações'.")
+    
     clients_df = get_clients()
     if clients_df:
-        st.dataframe(clients_df, use_container_width=True)
-    
+        edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
+        
+        if st.button("💾 Salvar Alterações de Clientes"):
+            try:
+                for row in edited_clients:
+                    if "id" in row and row["id"]:
+                        supabase.table("clients").update({
+                            "name": row.get("name"),
+                            "contact": row.get("contact"),
+                            "nif": row.get("nif"),
+                            "address": row.get("address"),
+                            "postal": row.get("postal"),
+                            "phone": row.get("phone"),
+                            "email": row.get("email")
+                        }).eq("id", row["id"]).execute()
+                st.success("Dados dos clientes atualizados na nuvem!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao atualizar clientes: {e}")
+
     with st.expander("➕ Cadastrar Novo Cliente"):
         with st.form("form_client"):
             c1, c2 = st.columns(2)
@@ -344,20 +352,41 @@ with tab_clients:
                     st.success("Cliente registado com sucesso!")
                     st.rerun()
 
-# TAB 3: EQUIPAMENTOS
+# TAB 3: EQUIPAMENTOS (COM EDIÇÃO DIRETA DE TABELA E CÁLCULO DE VENDA)
 with tab_products:
-    st.subheader("Gerenciar Equipamentos")
+    st.subheader("Gerenciar e Editar Equipamentos")
+    st.caption("💡 Altere os valores de custo e margem diretamente na tabela para recalcular o valor de venda.")
+    
     prods_df = get_products()
     if prods_df:
-        st.dataframe(prods_df, use_container_width=True)
+        edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
+        
+        if st.button("💾 Salvar Alterações de Equipamentos"):
+            try:
+                for row in edited_prods:
+                    if "id" in row and row["id"]:
+                        supabase.table("products").update({
+                            "ref": row.get("ref"),
+                            "description": row.get("description"),
+                            "cost": float(row.get("cost", 0)),
+                            "margin": float(row.get("margin", 0.15)),
+                            "unit": row.get("unit", "UN")
+                        }).eq("id", row["id"]).execute()
+                st.success("Catálogo de equipamentos atualizado!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao atualizar equipamentos: {e}")
 
     with st.expander("➕ Cadastrar Novo Equipamento"):
         with st.form("form_product"):
             p_ref = st.text_input("Referência")
             p_desc = st.text_input("Descrição *")
             p_cost = st.number_input("Custo (€) *", min_value=0.0, step=10.0)
-            p_margin = st.number_input("Margem (%)", value=15.0, step=1.0) / 100.0
+            p_margin = st.number_input("Margem (ex: 0.15 para 15%)", value=0.15, step=0.01, format="%.2f")
             p_unit = st.text_input("Unidade", value="UN")
+
+            venda_sugerida = sale_price(p_cost, Decimal(str(p_margin)))
+            st.info(f"💡 Preço de Venda Calculado (+{p_margin*100:.0f}%): **{money(venda_sugerida)} €**")
 
             if st.form_submit_button("Guardar Equipamento"):
                 if not p_desc:
@@ -375,7 +404,7 @@ with tab_products:
 
 # TAB 4: HISTÓRICO
 with tab_history:
-    st.subheader("Orçamentos Salvos no Banco de Dados")
+    st.subheader("Orçamentos Salvos no Supabase")
     quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
     if quotes_res.data:
         st.dataframe(quotes_res.data, use_container_width=True)
