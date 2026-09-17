@@ -53,7 +53,22 @@ def get_next_client_number():
         return max(START_CLIENT, int(res.data[0]["number"]) + 1)
     return START_CLIENT
 
-# GERAÇÃO DE PDF COM VERIFICAÇÃO RIGOROSA DE IMAGEM
+# CALLBACK PARA ATUALIZAR PREÇO UNITÁRIO E QUANTIDADE INSTANTANEAMENTE
+def update_product_row(row_idx, product_dict):
+    selected_key = st.session_state.get(f"prod_{row_idx}")
+    prod = product_dict.get(selected_key)
+    if prod:
+        cost = Decimal(str(prod.get("cost", 0)))
+        margin = Decimal(str(prod.get("margin", 0.15)))
+        price_sale = (cost * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        st.session_state[f"price_{row_idx}"] = float(price_sale)
+        if st.session_state.get(f"qty_{row_idx}", 0.0) == 0.0:
+            st.session_state[f"qty_{row_idx}"] = 1.0
+    else:
+        st.session_state[f"price_{row_idx}"] = 0.0
+        st.session_state[f"qty_{row_idx}"] = 0.0
+
+# GERAÇÃO DE PDF
 PDF_POS = {
     "proposal": (502.5, 802.0),
     "issue_date": (502.5, 791.6),
@@ -91,7 +106,6 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     c = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
 
-    # Busca o caminho absoluto no servidor Linux/Streamlit Cloud
     base_dir = os.path.dirname(os.path.abspath(__file__))
     base_img = os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")
 
@@ -157,10 +171,9 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
 # INTERFACE PRINCIPAL
 st.title("☀️ SolarX - Gestão de Orçamentos")
 
-# Alerta caso a imagem de fundo não esteja no repositório
 base_dir = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")):
-    st.warning("⚠️ Imagem de fundo 'BASE_Orçamento_SOLARX_00_A.jpg' não encontrada na raiz do GitHub. Faça o upload do ficheiro no GitHub para sair no PDF.")
+    st.warning("⚠️ Imagem de fundo não encontrada no repositório.")
 
 tab_quote, tab_clients, tab_products, tab_history = st.tabs([
     "📋 Novo Orçamento", "👥 Clientes", "📦 Equipamentos", "📂 Histórico na Nuvem"
@@ -187,36 +200,67 @@ with tab_quote:
     products_list = get_products()
     product_options = {f"{p.get('ref') or ''} - {p['description']}": p for p in products_list}
 
+    # Cabeçalho explicativo das colunas
+    col_h1, col_h2, col_h3, col_h4 = st.columns([4, 1.2, 1.8, 1.8])
+    col_h1.caption("**Equipamento / Descrição**")
+    col_h2.caption("**Qtd**")
+    col_h3.caption("**Preço Venda Unit. (€)**")
+    col_h4.caption("**Total Linha (€)**")
+
     items_data = []
     
     for i in range(14):
-        c_p, c_q, c_c, c_pr, c_tot = st.columns([4, 1, 1.5, 1.5, 1.5])
+        if f"price_{i}" not in st.session_state:
+            st.session_state[f"price_{i}"] = 0.0
+        if f"qty_{i}" not in st.session_state:
+            st.session_state[f"qty_{i}"] = 0.0
+
+        c_p, c_q, c_pr, c_tot = st.columns([4, 1.2, 1.8, 1.8])
         
         with c_p:
-            p_sel = st.selectbox(f"Item {i+1}", [""] + list(product_options.keys()), key=f"prod_{i}", label_visibility="collapsed")
+            p_sel = st.selectbox(
+                f"Item {i+1}", 
+                [""] + list(product_options.keys()), 
+                key=f"prod_{i}", 
+                on_change=update_product_row,
+                args=(i, product_options),
+                label_visibility="collapsed"
+            )
             prod = product_options.get(p_sel)
         
-        default_cost = float(prod['cost']) if prod else 0.0
-        default_qty = 1.0 if prod else 0.0
-        
         with c_q:
-            qty = st.number_input(f"Qtd {i+1}", min_value=0.0, value=default_qty, step=1.0, key=f"qty_{i}", label_visibility="collapsed")
-        with c_c:
-            cost = st.number_input(f"Custo € {i+1}", min_value=0.0, value=default_cost, step=5.0, key=f"cost_{i}", label_visibility="collapsed")
+            qty = st.number_input(
+                f"Qtd {i+1}", 
+                min_value=0.0, 
+                step=1.0, 
+                key=f"qty_{i}", 
+                label_visibility="collapsed"
+            )
+            
+        with c_pr:
+            unit_price = st.number_input(
+                f"Venda € {i+1}", 
+                min_value=0.0, 
+                step=5.0, 
+                format="%.2f",
+                key=f"price_{i}", 
+                label_visibility="collapsed"
+            )
         
-        cost_dec = Decimal(str(cost))
         qty_dec = Decimal(str(qty))
-        
-        # CÁLCULO DIRETO COM MARGEM DE 15%
-        price_dec = sale_price(cost_dec, MARGEM_EQUIP)
+        price_dec = Decimal(str(unit_price))
         total_line_dec = (price_dec * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         
-        with c_pr:
-            st.text_input(f"Venda € {i+1}", value=money(price_dec), disabled=True, key=f"price_{i}", label_visibility="collapsed")
         with c_tot:
-            st.text_input(f"Total € {i+1}", value=money(total_line_dec), disabled=True, key=f"tot_{i}", label_visibility="collapsed")
+            st.text_input(
+                f"Total € {i+1}", 
+                value=money(total_line_dec), 
+                disabled=True, 
+                key=f"tot_disp_{i}", 
+                label_visibility="collapsed"
+            )
             
-        if prod and qty > 0:
+        if prod and qty > 0 and price_dec > 0:
             items_data.append({
                 "ref": prod.get("ref", ""),
                 "description": prod["description"],
@@ -239,7 +283,6 @@ with tab_quote:
     inst_cost_dec = Decimal(str(inst_cost_in))
     discount_dec = Decimal(str(discount_in))
 
-    # CÁLCULO DOS TOTAIS DA PROPOSTA
     subtotal_items = sum((it["line_total"] for it in items_data), Decimal("0"))
     taxable_equip = max(Decimal("0"), subtotal_items - discount_dec)
     total_equip = taxable_equip + (taxable_equip * IVA).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -255,7 +298,7 @@ with tab_quote:
         if not selected_client:
             st.error("Por favor, selecione um cliente.")
         elif not items_data:
-            st.error("Selecione pelo menos 1 equipamento com quantidade superior a 0.")
+            st.error("Selecione pelo menos 1 equipamento com quantidade e valor superiores a 0.")
         else:
             try:
                 q_res = supabase.table("quotes").insert({
@@ -294,15 +337,12 @@ with tab_quote:
             except Exception as e:
                 st.error(f"Erro ao gravar orçamento: {e}")
 
-# TAB 2: CLIENTES (COM EDIÇÃO DIRETA DE TABELA)
+# TAB 2: CLIENTES
 with tab_clients:
     st.subheader("Gerenciar e Editar Clientes")
-    st.caption("💡 Pode alterar qualquer campo diretamente nas células abaixo e clicar em 'Salvar Alterações'.")
-    
     clients_df = get_clients()
     if clients_df:
         edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
-        
         if st.button("💾 Salvar Alterações de Clientes"):
             try:
                 for row in edited_clients:
@@ -316,7 +356,7 @@ with tab_clients:
                             "phone": row.get("phone"),
                             "email": row.get("email")
                         }).eq("id", row["id"]).execute()
-                st.success("Dados dos clientes atualizados na nuvem!")
+                st.success("Dados dos clientes atualizados!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao atualizar clientes: {e}")
@@ -352,15 +392,12 @@ with tab_clients:
                     st.success("Cliente registado com sucesso!")
                     st.rerun()
 
-# TAB 3: EQUIPAMENTOS (COM EDIÇÃO DIRETA DE TABELA E CÁLCULO DE VENDA)
+# TAB 3: EQUIPAMENTOS
 with tab_products:
     st.subheader("Gerenciar e Editar Equipamentos")
-    st.caption("💡 Altere os valores de custo e margem diretamente na tabela para recalcular o valor de venda.")
-    
     prods_df = get_products()
     if prods_df:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
-        
         if st.button("💾 Salvar Alterações de Equipamentos"):
             try:
                 for row in edited_prods:
