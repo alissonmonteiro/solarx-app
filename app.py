@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client
 
 # Configurações de acesso ao Supabase
-SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
+SUPABASE_URL = "https://oqmvvomjbvfdjgvyleb.supabase.co"
 SUPABASE_KEY = "sb_publishable_9WcBzPoBvuy-pjnKL7yMgQ_Cs4kPcNI"
 
 # Inicializa o cliente do Supabase com tratamento de cache
