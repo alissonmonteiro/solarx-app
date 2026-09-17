@@ -200,7 +200,7 @@ with tab_quote:
     products_list = get_products()
     product_options = {f"{p.get('ref') or ''} - {p['description']}": p for p in products_list}
 
-    # Cabeçalho explicativo das colunas
+    # Cabeçalho das Colunas
     col_h1, col_h2, col_h3, col_h4 = st.columns([4, 1.2, 1.8, 1.8])
     col_h1.caption("**Equipamento / Descrição**")
     col_h2.caption("**Qtd**")
@@ -247,18 +247,14 @@ with tab_quote:
                 label_visibility="collapsed"
             )
         
+        # CÁLCULO DINÂMICO REATIVO DO TOTAL DA LINHA
         qty_dec = Decimal(str(qty))
         price_dec = Decimal(str(unit_price))
         total_line_dec = (price_dec * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         
         with c_tot:
-            st.text_input(
-                f"Total € {i+1}", 
-                value=money(total_line_dec), 
-                disabled=True, 
-                key=f"tot_disp_{i}", 
-                label_visibility="collapsed"
-            )
+            # EXIBIÇÃO CLARA E DESTACADA DO TOTAL DA LINHA EM TEMPO REAL
+            st.markdown(f"<div style='padding: 8px; background-color: #1e293b; border-radius: 4px; border: 1px solid #334155; text-align: right; font-weight: bold; color: #4ade80;'>{money(total_line_dec)} €</div>", unsafe_allow_html=True)
             
         if prod and qty > 0 and price_dec > 0:
             items_data.append({
