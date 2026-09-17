@@ -3,7 +3,7 @@ from supabase import create_client
 
 # Configurações de acesso ao Supabase
 SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
-SUPABASE_KEY = "sb_publishable_9WcBzPoBvuy-pjnKL7yMgQ_Cs4kPcNI"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbXZ2b21qYnZmZGpqZ3Z5bGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDE4OTgsImV4cCI6MjEwNTIxNzg5OH0.vlxe1shu0zgM0tXAnKS0aynIuoQsjXX32Ny_lbLBicc"
 
 # Inicializa o cliente do Supabase com tratamento de cache
 @st.cache_resource
