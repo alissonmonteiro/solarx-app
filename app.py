@@ -15,6 +15,19 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
+# ESTILO CSS PARA OTIMIZAR O BANNER NO TELEMÓVEL (RESPONSIVO)
+st.markdown("""
+    <style>
+        /* Garante que o banner tem uma altura agradável e não fica muito fino no mobile */
+        [data-testid="stImage"] img {
+            width: 100%;
+            max-height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # CONEXÃO COM O SUPABASE
 SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbXZ2b21qYnZmZGpqZ3Z5bGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDE4OTgsImV4cCI6MjEwNTIxNzg5OH0.vlxe1shu0zgM0tXAnKS0aynIuoQsjXX32Ny_lbLBicc"
