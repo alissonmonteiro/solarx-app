@@ -13,7 +13,7 @@ st.set_page_config(page_title="SolarX - Gestão de Orçamentos", layout="wide", 
 
 # CONEXÃO COM O SUPABASE
 SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
-SUPABASE_KEY = "COLE_AQUI_A_SUA_CHAVE_ANON_DO_SUPABASE"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbXZ2b21qYnZmZGpqZ3Z5bGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDE4OTgsImV4cCI6MjEwNTIxNzg5OH0.vlxe1shu0zgM0tXAnKS0aynIuoQsjXX32Ny_lbLBicc"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # CONSTANTES DE NEGÓCIO
