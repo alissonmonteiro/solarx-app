@@ -13,7 +13,7 @@ st.set_page_config(page_title="SolarX - Gestão de Orçamentos", layout="wide", 
 
 # CONEXÃO COM O SUPABASE
 SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbXZ2b21qYnZmZGpqZ3Z5bGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDE4OTgsImV4cCI6MjEwNTIxNzg5OH0.vlxe1shu0zgM0tXAnKS0aynIuoQsjXX32Ny_lbLBicc"
+SUPABASE_KEY = "COLE_AQUI_A_SUA_CHAVE_ANON_DO_SUPABASE"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # CONSTANTES DE NEGÓCIO
@@ -53,7 +53,7 @@ def get_next_client_number():
         return max(START_CLIENT, int(res.data[0]["number"]) + 1)
     return START_CLIENT
 
-# CALLBACK PARA ATUALIZAR PREÇO UNITÁRIO E QUANTIDADE INSTANTANEAMENTE
+# CALLBACK PARA ATUALIZAR PREÇO UNITÁRIO
 def update_product_row(row_idx, product_dict):
     selected_key = st.session_state.get(f"prod_{row_idx}")
     prod = product_dict.get(selected_key)
@@ -200,7 +200,6 @@ with tab_quote:
     products_list = get_products()
     product_options = {f"{p.get('ref') or ''} - {p['description']}": p for p in products_list}
 
-    # Cabeçalho das Colunas
     col_h1, col_h2, col_h3, col_h4 = st.columns([4, 1.2, 1.8, 1.8])
     col_h1.caption("**Equipamento / Descrição**")
     col_h2.caption("**Qtd**")
@@ -247,13 +246,11 @@ with tab_quote:
                 label_visibility="collapsed"
             )
         
-        # CÁLCULO DINÂMICO REATIVO DO TOTAL DA LINHA
         qty_dec = Decimal(str(qty))
         price_dec = Decimal(str(unit_price))
         total_line_dec = (price_dec * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         
         with c_tot:
-            # EXIBIÇÃO CLARA E DESTACADA DO TOTAL DA LINHA EM TEMPO REAL
             st.markdown(f"<div style='padding: 8px; background-color: #1e293b; border-radius: 4px; border: 1px solid #334155; text-align: right; font-weight: bold; color: #4ade80;'>{money(total_line_dec)} €</div>", unsafe_allow_html=True)
             
         if prod and qty > 0 and price_dec > 0:
@@ -388,16 +385,19 @@ with tab_clients:
                     st.success("Cliente registado com sucesso!")
                     st.rerun()
 
-# TAB 3: EQUIPAMENTOS
+# TAB 3: EQUIPAMENTOS (COM SUPORTE ROBUSTO DE INSERÇÃO E ATUALIZAÇÃO NO SUPABASE)
 with tab_products:
     st.subheader("Gerenciar e Editar Equipamentos")
+    st.caption("💡 Para cadastrar novos itens com segurança, utilize o formulário abaixo. Para editar os existentes, altere diretamente na tabela e clique no botão de salvar.")
+    
     prods_df = get_products()
     if prods_df:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Equipamentos"):
             try:
                 for row in edited_prods:
-                    if "id" in row and row["id"]:
+                    # Se a linha possuir ID, atualizamos
+                    if "id" in row and row["id"] is not None:
                         supabase.table("products").update({
                             "ref": row.get("ref"),
                             "description": row.get("description"),
@@ -405,12 +405,22 @@ with tab_products:
                             "margin": float(row.get("margin", 0.15)),
                             "unit": row.get("unit", "UN")
                         }).eq("id", row["id"]).execute()
-                st.success("Catálogo de equipamentos atualizado!")
+                    else:
+                        # Se for uma linha nova adicionada diretamente na grelha sem ID
+                        if row.get("description"):
+                            supabase.table("products").insert({
+                                "ref": row.get("ref"),
+                                "description": row.get("description"),
+                                "cost": float(row.get("cost", 0)),
+                                "margin": float(row.get("margin", 0.15)),
+                                "unit": row.get("unit", "UN")
+                            }).execute()
+                st.success("Catálogo de equipamentos atualizado com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao atualizar equipamentos: {e}")
 
-    with st.expander("➕ Cadastrar Novo Equipamento"):
+    with st.expander("➕ Cadastrar Novo Equipamento (Recomendado)"):
         with st.form("form_product"):
             p_ref = st.text_input("Referência")
             p_desc = st.text_input("Descrição *")
