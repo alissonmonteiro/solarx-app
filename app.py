@@ -8,8 +8,12 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 
-# Configuração da Página no Streamlit
-st.set_page_config(page_title="SolarX - Gestão de Orçamentos", layout="wide", page_icon="☀️")
+# Configuração da Página no Streamlit (Com Ícone Personalizado)
+st.set_page_config(
+    page_title="SolarX - Gestão de Orçamentos", 
+    layout="wide", 
+    page_icon="icon_png.png"
+)
 
 # CONEXÃO COM O SUPABASE
 SUPABASE_URL = "https://oqmvvomjbvfdjjgvyleb.supabase.co"
@@ -168,12 +172,16 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# INTERFACE PRINCIPAL
-st.title("☀️ SolarX - Gestão de Orçamentos")
-
+# --- EXIBIÇÃO DO BANNER DA MARCA NO TOPO DA APLICAÇÃO ---
 base_dir = os.path.dirname(os.path.abspath(__file__))
+banner_path = os.path.join(base_dir, "banner_solarx.png")
+if os.path.exists(banner_path):
+    st.image(banner_path, use_container_width=True)
+else:
+    st.title("☀️ SolarX - Gestão de Orçamentos")
+
 if not os.path.exists(os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")):
-    st.warning("⚠️ Imagem de fundo não encontrada no repositório.")
+    st.warning("⚠️ Imagem de fundo do orçamento PDF não encontrada no repositório.")
 
 tab_quote, tab_clients, tab_products, tab_history = st.tabs([
     "📋 Novo Orçamento", "👥 Clientes", "📦 Equipamentos", "📂 Histórico na Nuvem"
@@ -339,7 +347,7 @@ with tab_clients:
         if st.button("💾 Salvar Alterações de Clientes"):
             try:
                 for row in edited_clients:
-                    if "id" in row and row["id"]:
+                    if "id" in row and row["id"] is not None:
                         supabase.table("clients").update({
                             "name": row.get("name"),
                             "contact": row.get("contact"),
@@ -349,7 +357,20 @@ with tab_clients:
                             "phone": row.get("phone"),
                             "email": row.get("email")
                         }).eq("id", row["id"]).execute()
-                st.success("Dados dos clientes atualizados!")
+                    else:
+                        if row.get("name"):
+                            num = get_next_client_number()
+                            supabase.table("clients").insert({
+                                "number": num,
+                                "name": row.get("name"),
+                                "contact": row.get("contact"),
+                                "nif": row.get("nif"),
+                                "address": row.get("address"),
+                                "postal": row.get("postal"),
+                                "phone": row.get("phone"),
+                                "email": row.get("email")
+                            }).execute()
+                st.success("Dados dos clientes atualizados com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao atualizar clientes: {e}")
@@ -385,18 +406,15 @@ with tab_clients:
                     st.success("Cliente registado com sucesso!")
                     st.rerun()
 
-# TAB 3: EQUIPAMENTOS (COM SUPORTE ROBUSTO DE INSERÇÃO E ATUALIZAÇÃO NO SUPABASE)
+# TAB 3: EQUIPAMENTOS
 with tab_products:
     st.subheader("Gerenciar e Editar Equipamentos")
-    st.caption("💡 Para cadastrar novos itens com segurança, utilize o formulário abaixo. Para editar os existentes, altere diretamente na tabela e clique no botão de salvar.")
-    
     prods_df = get_products()
     if prods_df:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Equipamentos"):
             try:
                 for row in edited_prods:
-                    # Se a linha possuir ID, atualizamos
                     if "id" in row and row["id"] is not None:
                         supabase.table("products").update({
                             "ref": row.get("ref"),
@@ -406,7 +424,6 @@ with tab_products:
                             "unit": row.get("unit", "UN")
                         }).eq("id", row["id"]).execute()
                     else:
-                        # Se for uma linha nova adicionada diretamente na grelha sem ID
                         if row.get("description"):
                             supabase.table("products").insert({
                                 "ref": row.get("ref"),
@@ -420,7 +437,7 @@ with tab_products:
             except Exception as e:
                 st.error(f"Erro ao atualizar equipamentos: {e}")
 
-    with st.expander("➕ Cadastrar Novo Equipamento (Recomendado)"):
+    with st.expander("➕ Cadastrar Novo Equipamento"):
         with st.form("form_product"):
             p_ref = st.text_input("Referência")
             p_desc = st.text_input("Descrição *")
