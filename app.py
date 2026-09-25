@@ -290,4 +290,215 @@ with tab_quote:
         
         with c_tot:
             line_str = money(total_line_dec)
-            html_box = "
+            st.markdown(f"**{line_str} €**")
+            
+        if prod and qty > 0 and price_dec > 0:
+            items_data.append({
+                "ref": prod.get("ref", ""),
+                "description": prod["description"],
+                "qty": qty_dec,
+                "unit": prod.get("unit", "UN"),
+                "unit_price": price_dec,
+                "line_total": total_line_dec
+            })
+
+    st.subheader("3. Valores Finais e Observações")
+    c_inst, c_disc, c_obs = st.columns([1.5, 1.5, 3])
+    
+    with c_inst:
+        inst_cost_in = st.number_input("Instalação (€ Custo)", min_value=0.0, value=0.0, step=10.0)
+    with c_disc:
+        discount_in = st.number_input("Desconto €", min_value=0.0, value=0.0, step=5.0)
+    with c_obs:
+        notes_in = st.text_input("Observações", value="Instalação INCLUIDA")
+
+    inst_cost_dec = Decimal(str(inst_cost_in))
+    discount_dec = Decimal(str(discount_in))
+
+    subtotal_items = sum((it["line_total"] for it in items_data), Decimal("0"))
+    taxable_equip = max(Decimal("0"), subtotal_items - discount_dec)
+    total_equip = taxable_equip + (taxable_equip * IVA).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    inst_sale = (inst_cost_dec * (Decimal("1") + MARGEM_INSTALACAO)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    taxable_global = max(Decimal("0"), subtotal_items + inst_sale - discount_dec)
+    total_global = taxable_global + (taxable_global * IVA).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    st.markdown("---")
+    eq_final = money(total_equip)
+    geral_final = money(total_global)
+    summary_text = f"### 💰 **Total Equipamentos (c/ IVA 23%):** `{eq_final} €` | 🚀 **TOTAL GERAL PROPOSTA:** `{geral_final} €`"
+    st.markdown(summary_text)
+
+    if st.button("💾 Salvar no Supabase e Gerar PDF", type="primary"):
+        if not selected_client:
+            st.error("Por favor, selecione um cliente.")
+        elif not items_data:
+            st.error("Selecione pelo menos 1 equipamento com quantidade e valor superiores a 0.")
+        else:
+            try:
+                q_res = supabase.table("quotes").insert({
+                    "proposal": int(proposal_num),
+                    "client_id": selected_client["id"],
+                    "created_at": datetime.now().isoformat(),
+                    "discount": float(discount_dec),
+                    "installation_cost": float(inst_cost_dec),
+                    "notes": notes_in,
+                    "total": float(total_global)
+                }).execute()
+                
+                qid = q_res.data[0]["id"]
+
+                items_payload = [{
+                    "quote_id": qid,
+                    "ref": it["ref"],
+                    "description": it["description"],
+                    "qty": float(it["qty"]),
+                    "unit": it["unit"],
+                    "unit_price": float(it["unit_price"]),
+                    "line_total": float(it["line_total"])
+                } for it in items_data]
+                
+                supabase.table("quote_items").insert(items_payload).execute()
+
+                pdf_buf = generate_pdf_buffer(selected_client, items_data, discount_dec, inst_cost_dec, notes_in, proposal_num)
+                
+                st.success("Orçamento gravado com sucesso no Supabase!")
+                st.download_button(
+                    label="📄 Descarregar Proposta em PDF",
+                    data=pdf_buf,
+                    file_name=f"Orcamento_{proposal_num}_{selected_client['name'].replace(' ', '_')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"Erro ao gravar orçamento: {e}")
+
+# TAB 2: CLIENTES
+with tab_clients:
+    st.subheader("Gerenciar e Editar Clientes")
+    clients_df = get_clients()
+    if clients_df:
+        edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Salvar Alterações de Clientes"):
+            try:
+                for row in edited_clients:
+                    if "id" in row and row["id"] is not None:
+                        supabase.table("clients").update({
+                            "name": row.get("name"),
+                            "contact": row.get("contact"),
+                            "nif": row.get("nif"),
+                            "address": row.get("address"),
+                            "postal": row.get("postal"),
+                            "phone": row.get("phone"),
+                            "email": row.get("email")
+                        }).eq("id", row["id"]).execute()
+                    else:
+                        if row.get("name"):
+                            num = get_next_client_number()
+                            supabase.table("clients").insert({
+                                "number": num,
+                                "name": row.get("name"),
+                                "contact": row.get("contact"),
+                                "nif": row.get("nif"),
+                                "address": row.get("address"),
+                                "postal": row.get("postal"),
+                                "phone": row.get("phone"),
+                                "email": row.get("email")
+                            }).execute()
+                st.success("Dados dos clientes atualizados com sucesso na nuvem!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao atualizar clientes: {e}")
+
+    with st.expander("➕ Cadastrar Novo Cliente"):
+        with st.form("form_client"):
+            c1, c2 = st.columns(2)
+            with c1:
+                c_name = st.text_input("Nome *")
+                c_contact = st.text_input("Pessoa de Contacto")
+                c_nif = st.text_input("NIF")
+                c_phone = st.text_input("Telemóvel")
+            with c2:
+                c_address = st.text_input("Morada")
+                c_postal = st.text_input("Código Postal")
+                c_email = st.text_input("E-mail")
+            
+            if st.form_submit_button("Guardar Cliente"):
+                if not c_name:
+                    st.error("Nome é obrigatório!")
+                else:
+                    num = get_next_client_number()
+                    supabase.table("clients").insert({
+                        "number": num,
+                        "name": c_name,
+                        "contact": c_contact,
+                        "nif": c_nif,
+                        "address": c_address,
+                        "postal": c_postal,
+                        "phone": c_phone,
+                        "email": c_email
+                    }).execute()
+                    st.success("Cliente registado com sucesso!")
+                    st.rerun()
+
+# TAB 3: EQUIPAMENTOS
+with tab_products:
+    st.subheader("Gerenciar e Editar Equipamentos")
+    prods_df = get_products()
+    if prods_df:
+        edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Salvar Alterações de Equipamentos"):
+            try:
+                for row in edited_prods:
+                    if "id" in row and row["id"] is not None:
+                        supabase.table("products").update({
+                            "ref": row.get("ref"),
+                            "description": row.get("description"),
+                            "cost": float(row.get("cost", 0)),
+                            "margin": float(row.get("margin", 0.15)),
+                            "unit": row.get("unit", "UN")
+                        }).eq("id", row["id"]).execute()
+                    else:
+                        if row.get("description"):
+                            supabase.table("products").insert({
+                                "ref": row.get("ref"),
+                                "description": row.get("description"),
+                                "cost": float(row.get("cost", 0)),
+                                "margin": float(row.get("margin", 0.15)),
+                                "unit": row.get("unit", "UN")
+                            }).execute()
+                st.success("Catálogo de equipamentos atualizado com sucesso na nuvem!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao atualizar equipamentos: {e}")
+
+    with st.expander("➕ Cadastrar Novo Equipamento"):
+        with st.form("form_product"):
+            p_ref = st.text_input("Referência")
+            p_desc = st.text_input("Descrição *")
+            p_cost = st.number_input("Custo (€) *", min_value=0.0, step=10.0)
+            p_margin = st.number_input("Margem (ex: 0.15 para 15%)", value=0.15, step=0.01, format="%.2f")
+            p_unit = st.text_input("Unidade", value="UN")
+
+            venda_sugerida = sale_price(p_cost, Decimal(str(p_margin)))
+            st.info(f"💡 Preço de Venda Calculado (+{p_margin*100:.0f}%): **{money(venda_sugerida)} €**")
+
+            if st.form_submit_button("Guardar Equipamento"):
+                if not p_desc:
+                    st.error("Descrição é obrigatória!")
+                else:
+                    supabase.table("products").insert({
+                        "ref": p_ref,
+                        "description": p_desc,
+                        "cost": float(p_cost),
+                        "margin": float(p_margin),
+                        "unit": p_unit
+                    }).execute()
+                    st.success("Equipamento cadastrado com sucesso!")
+                    st.rerun()
+
+# TAB 4: HISTÓRICO
+with tab_history:
+    st.subheader("Orçamentos Salvos no Supabase")
+    quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
+    if quotes_res.data:
+        st.dataframe(quotes_res.data, use_container_width=True)
