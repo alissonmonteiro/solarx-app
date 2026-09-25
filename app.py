@@ -290,4 +290,4 @@ with tab_quote:
         
         with c_tot:
             line_str = money(total_line_dec)
-            html_box = f"""
+            html_box = "
