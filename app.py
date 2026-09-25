@@ -289,4 +289,5 @@ with tab_quote:
         total_line_dec = (price_dec * qty_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         
         with c_tot:
+            line_str = money(total_line_dec)
             st.markdown(f"
