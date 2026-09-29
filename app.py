@@ -15,7 +15,7 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
-# ESTILO CSS ROBUSTO E PERSONALIZADO
+# ESTILO CSS COM DESTAQUE VERDE NA DESCRIÇÃO E BOTÃO ENTER
 st.markdown("""
     
 """, unsafe_allow_html=True)
@@ -409,12 +409,20 @@ with tab_quote:
 # TAB 2: CLIENTES
 with tab_clients:
     st.subheader("Gerenciar e Editar Clientes")
-    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente.")
+    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente e clique em Salvar.")
     clients_df = get_clients()
-    if clients_df:
+    if clients_df is not None:
         edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Clientes"):
             try:
+                # 1. Detetar e apagar itens excluídos
+                original_ids = {item["id"] for item in clients_df if "id" in item}
+                edited_ids = {row["id"] for row in edited_clients if row.get("id") is not None}
+                deleted_ids = original_ids - edited_ids
+                for d_id in deleted_ids:
+                    supabase.table("clients").delete().eq("id", d_id).execute()
+
+                # 2. Atualizar ou Inserir
                 for row in edited_clients:
                     if "id" in row and row["id"] is not None:
                         supabase.table("clients").update({
@@ -478,12 +486,20 @@ with tab_clients:
 # TAB 3: EQUIPAMENTOS
 with tab_products:
     st.subheader("Gerenciar e Editar Equipamentos")
-    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente.")
+    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente e clique em Salvar.")
     prods_df = get_products()
-    if prods_df:
+    if prods_df is not None:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Equipamentos"):
             try:
+                # 1. Detetar e apagar itens excluídos
+                original_ids = {item["id"] for item in prods_df if "id" in item}
+                edited_ids = {row["id"] for row in edited_prods if row.get("id") is not None}
+                deleted_ids = original_ids - edited_ids
+                for d_id in deleted_ids:
+                    supabase.table("products").delete().eq("id", d_id).execute()
+
+                # 2. Atualizar ou Inserir
                 for row in edited_prods:
                     if "id" in row and row["id"] is not None:
                         supabase.table("products").update({
@@ -535,12 +551,20 @@ with tab_products:
 # TAB 4: UTILIZADORES
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
-    st.info("💡 **Dica:** Para excluir um utilizador, selecione a caixa de marcação à esquerda na linha correspondente.")
+    st.info("💡 **Dica:** Para excluir um utilizador, selecione a caixa de marcação à esquerda e clique em Salvar.")
     users_df = get_users()
-    if users_df:
+    if users_df is not None:
         edited_users = st.data_editor(users_df, key="users_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Utilizadores"):
             try:
+                # 1. Detetar e apagar itens excluídos
+                original_ids = {item["id"] for item in users_df if "id" in item}
+                edited_ids = {row["id"] for row in edited_users if row.get("id") is not None}
+                deleted_ids = original_ids - edited_ids
+                for d_id in deleted_ids:
+                    supabase.table("users").delete().eq("id", d_id).execute()
+
+                # 2. Atualizar ou Inserir
                 for row in edited_users:
                     if "id" in row and row["id"] is not None:
                         supabase.table("users").update({
@@ -568,7 +592,6 @@ with tab_users:
                         st.success("Utilizador registado com sucesso na nuvem!")
                         st.rerun()
                     except Exception:
-                        # Fallback se a tabela não existir no Supabase
                         new_id = len(st.session_state["local_users"]) + 1
                         st.session_state["local_users"].append({"id": new_id, "name": u_name})
                         st.success("Utilizador registado com sucesso (Modo Local)! Para guardar na nuvem, execute o SQL abaixo no Supabase.")
