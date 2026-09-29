@@ -15,7 +15,7 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
-# ESTILO CSS PERSONALIZADO (LOGIN, TABELAS E DESTAQUES)
+# ESTILO CSS CORRIGIDO E PERSONALIZADO
 st.markdown("""
     
 """, unsafe_allow_html=True)
@@ -537,7 +537,7 @@ with tab_users:
                 st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores (Nota: Certifique-se de que a tabela 'users' existe no Supabase). Detalhe: {e}")
+                st.error(f"Erro ao atualizar utilizadores: {e}")
 
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
