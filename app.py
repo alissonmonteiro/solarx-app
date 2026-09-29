@@ -8,31 +8,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 
-# --- SISTEMA DE SENHA DE ACESSO ---
-def check_password():
-    """Retorna True se o utilizador introduzir a senha correta."""
-    def password_entered():
-        if st.session_state["password"] == st.secrets.get("app_password", "solarx123"):
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.subheader("🔒 Acesso Restrito - SolarX")
-        st.text_input("Introduza a senha de acesso:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.subheader("🔒 Acesso Restrito - SolarX")
-        st.text_input("Introduza a senha de acesso:", type="password", on_change=password_entered, key="password")
-        st.error("😕 Senha incorreta. Tente novamente.")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()
-
 # Configuração da Página no Streamlit (Com Ícone Personalizado)
 st.set_page_config(
     page_title="SolarX - Gestão de Orçamentos", 
@@ -40,7 +15,7 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
-# ESTILO CSS PARA OTIMIZAR O BANNER NO TELEMÓVEL (RESPONSIVO)
+# ESTILO CSS PERSONALIZADO (LOGIN, TABELAS E DESTAQUES)
 st.markdown("""
     
 """, unsafe_allow_html=True)
@@ -56,6 +31,37 @@ MARGEM_EQUIP = Decimal("0.15")
 MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
+
+# --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
+def check_password():
+    def password_entered():
+        entered_pwd = st.session_state.get("password_input", "")
+        if entered_pwd == st.secrets.get("app_password", "solarx123"):
+            st.session_state["password_correct"] = True
+            if "password_input" in st.session_state:
+                del st.session_state["password_input"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state or not st.session_state["password_correct"]:
+        st.subheader("🔒 Acesso Restrito - SolarX")
+        with st.form("login_form"):
+            col_pwd, col_btn = st.columns([3, 1])
+            with col_pwd:
+                st.text_input("Introduza a senha de acesso:", type="password", key="password_input", label_visibility="collapsed", placeholder="Introduza a senha...")
+            with col_btn:
+                submitted = st.form_submit_button("Enter")
+            
+            if submitted:
+                password_entered()
+
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Senha incorreta. Tente novamente.")
+        return False
+    return True
+
+if not check_password():
+    st.stop()
 
 # FUNÇÕES AUXILIARES DE CÁLCULO
 def money(v):
@@ -74,6 +80,15 @@ def get_clients():
 def get_products():
     res = supabase.table("products").select("*").order("description").execute()
     return res.data or []
+
+def get_users():
+    try:
+        res = supabase.table("users").select("*").order("name").execute()
+        if res.data:
+            return res.data
+    except Exception:
+        pass
+    return [{"id": 1, "name": "Alisson Monteiro"}]
 
 def get_next_proposal():
     res = supabase.table("quotes").select("proposal").order("proposal", desc=True).limit(1).execute()
@@ -135,7 +150,7 @@ def draw_text(c, x, y, text, size=8, bold=False, color=(0, 0, 0)):
     c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
     c.drawString(x, y, str(text))
 
-def generate_pdf_buffer(client, items, discount, installation_cost, notes, proposal):
+def generate_pdf_buffer(client, items, discount, installation_cost, notes, proposal, prepared_by):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
@@ -149,7 +164,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     date_str = datetime.now().strftime("%d-%m-%Y")
     draw_text(c, *PDF_POS["proposal"], str(proposal), 9, True, (1, 1, 1))
     draw_text(c, *PDF_POS["issue_date"], date_str, 8, True, (1, 1, 1))
-    draw_text(c, *PDF_POS["prepared_by"], "Alisson Monteiro", 8, False)
+    draw_text(c, *PDF_POS["prepared_by"], str(prepared_by), 8, False)
 
     draw_text(c, *PDF_POS["client_name"], client["name"][:38], 8, True)
     address = (client.get("address") or "").replace("\n", " | ")
@@ -213,23 +228,28 @@ else:
 if not os.path.exists(os.path.join(base_dir, "BASE_Orçamento_SOLARX_00_A.jpg")):
     st.warning("⚠️ Imagem de fundo do orçamento PDF não encontrada no repositório.")
 
-tab_quote, tab_clients, tab_products, tab_history = st.tabs([
-    "📋 Novo Orçamento", "👥 Clientes", "📦 Equipamentos", "📂 Histórico na Nuvem"
+tab_quote, tab_clients, tab_products, tab_users, tab_history = st.tabs([
+    "📋 Novo Orçamento", "👥 Clientes", "📦 Equipamentos", "👤 Utilizadores", "📂 Histórico na Nuvem"
 ])
 
 # TAB 1: NOVO ORÇAMENTO
 with tab_quote:
     st.subheader("1. Dados Gerais")
-    col1, col2 = st.columns([1, 3])
+    col1, col2, col3 = st.columns([1, 2, 2])
     
     clients_list = get_clients()
     client_options = {f"{c['number']:04d} - {c['name']}": c for c in clients_list}
+    
+    users_list = get_users()
+    user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
     
     with col1:
         proposal_num = st.number_input("Proposta Nº", value=get_next_proposal(), step=1)
     with col2:
         selected_client_str = st.selectbox("Selecione o Cliente", options=[""] + list(client_options.keys()))
         selected_client = client_options.get(selected_client_str)
+    with col3:
+        selected_user = st.selectbox("Elaborado Por", options=user_names)
 
     if selected_client:
         st.info(f"**NIF:** {selected_client.get('nif', '')} | **Telemóvel:** {selected_client.get('phone', '')} | **E-mail:** {selected_client.get('email', '')} | **Morada:** {selected_client.get('address', '')}")
@@ -360,7 +380,7 @@ with tab_quote:
                 
                 supabase.table("quote_items").insert(items_payload).execute()
 
-                pdf_buf = generate_pdf_buffer(selected_client, items_data, discount_dec, inst_cost_dec, notes_in, proposal_num)
+                pdf_buf = generate_pdf_buffer(selected_client, items_data, discount_dec, inst_cost_dec, notes_in, proposal_num, selected_user)
                 
                 st.success("Orçamento gravado com sucesso no Supabase!")
                 st.download_button(
@@ -496,7 +516,44 @@ with tab_products:
                     st.success("Equipamento cadastrado com sucesso!")
                     st.rerun()
 
-# TAB 4: HISTÓRICO
+# TAB 4: UTILIZADORES
+with tab_users:
+    st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
+    users_df = get_users()
+    if users_df:
+        edited_users = st.data_editor(users_df, key="users_editor", use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Salvar Alterações de Utilizadores"):
+            try:
+                for row in edited_users:
+                    if "id" in row and row["id"] is not None:
+                        supabase.table("users").update({
+                            "name": row.get("name")
+                        }).eq("id", row["id"]).execute()
+                    else:
+                        if row.get("name"):
+                            supabase.table("users").insert({
+                                "name": row.get("name")
+                            }).execute()
+                st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao atualizar utilizadores (Nota: Certifique-se de que a tabela 'users' existe no Supabase). Detalhe: {e}")
+
+    with st.expander("➕ Cadastrar Novo Utilizador"):
+        with st.form("form_user"):
+            u_name = st.text_input("Nome do Utilizador *")
+            if st.form_submit_button("Guardar Utilizador"):
+                if not u_name:
+                    st.error("O nome é obrigatório!")
+                else:
+                    try:
+                        supabase.table("users").insert({"name": u_name}).execute()
+                        st.success("Utilizador registado com sucesso!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao registar utilizador: {e}")
+
+# TAB 5: HISTÓRICO
 with tab_history:
     st.subheader("Orçamentos Salvos no Supabase")
     quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
