@@ -15,7 +15,7 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
-# ESTILO CSS CORRIGIDO E PERSONALIZADO
+# ESTILO CSS ROBUSTO E PERSONALIZADO
 st.markdown("""
     
 """, unsafe_allow_html=True)
@@ -72,34 +72,48 @@ def sale_price(cost, margin=MARGEM_EQUIP):
     cost_dec = Decimal(str(cost or 0))
     return (cost_dec * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-# DADOS SUPABASE
+# DADOS SUPABASE (COM FALLBACK SEGURO)
 def get_clients():
-    res = supabase.table("clients").select("*").order("number").execute()
-    return res.data or []
+    try:
+        res = supabase.table("clients").select("*").order("number").execute()
+        return res.data or []
+    except Exception:
+        return []
 
 def get_products():
-    res = supabase.table("products").select("*").order("description").execute()
-    return res.data or []
+    try:
+        res = supabase.table("products").select("*").order("description").execute()
+        return res.data or []
+    except Exception:
+        return []
 
 def get_users():
+    if "local_users" not in st.session_state:
+        st.session_state["local_users"] = [{"id": 1, "name": "Alisson Monteiro"}]
     try:
         res = supabase.table("users").select("*").order("name").execute()
         if res.data:
             return res.data
     except Exception:
         pass
-    return [{"id": 1, "name": "Alisson Monteiro"}]
+    return st.session_state["local_users"]
 
 def get_next_proposal():
-    res = supabase.table("quotes").select("proposal").order("proposal", desc=True).limit(1).execute()
-    if res.data and res.data[0]["proposal"]:
-        return max(START_PROPOSAL, int(res.data[0]["proposal"]) + 1)
+    try:
+        res = supabase.table("quotes").select("proposal").order("proposal", desc=True).limit(1).execute()
+        if res.data and res.data[0]["proposal"]:
+            return max(START_PROPOSAL, int(res.data[0]["proposal"]) + 1)
+    except Exception:
+        pass
     return START_PROPOSAL
 
 def get_next_client_number():
-    res = supabase.table("clients").select("number").order("number", desc=True).limit(1).execute()
-    if res.data and res.data[0]["number"]:
-        return max(START_CLIENT, int(res.data[0]["number"]) + 1)
+    try:
+        res = supabase.table("clients").select("number").order("number", desc=True).limit(1).execute()
+        if res.data and res.data[0]["number"]:
+            return max(START_CLIENT, int(res.data[0]["number"]) + 1)
+    except Exception:
+        pass
     return START_CLIENT
 
 # CALLBACK PARA ATUALIZAR PREÇO UNITÁRIO
@@ -395,6 +409,7 @@ with tab_quote:
 # TAB 2: CLIENTES
 with tab_clients:
     st.subheader("Gerenciar e Editar Clientes")
+    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente.")
     clients_df = get_clients()
     if clients_df:
         edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
@@ -463,6 +478,7 @@ with tab_clients:
 # TAB 3: EQUIPAMENTOS
 with tab_products:
     st.subheader("Gerenciar e Editar Equipamentos")
+    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente.")
     prods_df = get_products()
     if prods_df:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
@@ -519,6 +535,7 @@ with tab_products:
 # TAB 4: UTILIZADORES
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
+    st.info("💡 **Dica:** Para excluir um utilizador, selecione a caixa de marcação à esquerda na linha correspondente.")
     users_df = get_users()
     if users_df:
         edited_users = st.data_editor(users_df, key="users_editor", use_container_width=True, num_rows="dynamic")
@@ -537,8 +554,8 @@ with tab_users:
                 st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores: {e}")
-
+                st.warning("⚠️ Tabela 'users' não encontrada no Supabase. Utilizando modo local. Execute o comando SQL abaixo no Supabase se desejar persistir na nuvem.")
+                
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
             u_name = st.text_input("Nome do Utilizador *")
@@ -548,14 +565,30 @@ with tab_users:
                 else:
                     try:
                         supabase.table("users").insert({"name": u_name}).execute()
-                        st.success("Utilizador registado com sucesso!")
+                        st.success("Utilizador registado com sucesso na nuvem!")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao registar utilizador: {e}")
+                    except Exception:
+                        # Fallback se a tabela não existir no Supabase
+                        new_id = len(st.session_state["local_users"]) + 1
+                        st.session_state["local_users"].append({"id": new_id, "name": u_name})
+                        st.success("Utilizador registado com sucesso (Modo Local)! Para guardar na nuvem, execute o SQL abaixo no Supabase.")
+                        st.rerun()
+
+    with st.expander("🛠️ Comando SQL para criar a tabela 'users' no Supabase"):
+        st.code("""
+create table users (
+  id serial primary key,
+  name text not null
+);
+insert into users (name) values ('Alisson Monteiro');
+        """, language="sql")
 
 # TAB 5: HISTÓRICO
 with tab_history:
     st.subheader("Orçamentos Salvos no Supabase")
-    quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
-    if quotes_res.data:
-        st.dataframe(quotes_res.data, use_container_width=True)
+    try:
+        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
+        if quotes_res.data:
+            st.dataframe(quotes_res.data, use_container_width=True)
+    except Exception as e:
+        st.info("Nenhum orçamento encontrado ou tabela em falta.")
