@@ -16,7 +16,7 @@ st.set_page_config(
     page_icon="icon_png.png"
 )
 
-# ESTILO CSS COM DESTAQUE VERDE NA DESCRIÇÃO E BOTÃO ENTER
+# ESTILO CSS COM CORREÇÃO ROBUSTA PARA A CAIXA DE SELEÇÃO DE EQUIPAMENTOS
 st.markdown("""
     
 """, unsafe_allow_html=True)
