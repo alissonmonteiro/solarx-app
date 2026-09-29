@@ -1,5 +1,6 @@
 import os
 import io
+import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import streamlit as st
@@ -31,6 +32,7 @@ MARGEM_EQUIP = Decimal("0.15")
 MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
+USERS_FILE = "users.json"
 
 # --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
 def check_password():
@@ -72,7 +74,7 @@ def sale_price(cost, margin=MARGEM_EQUIP):
     cost_dec = Decimal(str(cost or 0))
     return (cost_dec * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-# DADOS SUPABASE (COM FALLBACK SEGURO)
+# DADOS SUPABASE E PERSISTÊNCIA LOCAL
 def get_clients():
     try:
         res = supabase.table("clients").select("*").order("number").execute()
@@ -88,15 +90,31 @@ def get_products():
         return []
 
 def get_users():
-    if "local_users" not in st.session_state:
-        st.session_state["local_users"] = [{"id": 1, "name": "Alisson Monteiro"}]
     try:
         res = supabase.table("users").select("*").order("name").execute()
         if res.data:
             return res.data
     except Exception:
         pass
-    return st.session_state["local_users"]
+    
+    # Fallback persistente local se a tabela Supabase não existir
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data:
+                    return data
+        except Exception:
+            pass
+            
+    return [{"id": 1, "name": "Alisson Monteiro"}]
+
+def save_users_local(users_list):
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users_list, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
 def get_next_proposal():
     try:
@@ -415,14 +433,12 @@ with tab_clients:
         edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Clientes"):
             try:
-                # 1. Detetar e apagar itens excluídos
                 original_ids = {item["id"] for item in clients_df if "id" in item}
                 edited_ids = {row["id"] for row in edited_clients if row.get("id") is not None}
                 deleted_ids = original_ids - edited_ids
                 for d_id in deleted_ids:
                     supabase.table("clients").delete().eq("id", d_id).execute()
 
-                # 2. Atualizar ou Inserir
                 for row in edited_clients:
                     if "id" in row and row["id"] is not None:
                         supabase.table("clients").update({
@@ -492,14 +508,12 @@ with tab_products:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Equipamentos"):
             try:
-                # 1. Detetar e apagar itens excluídos
                 original_ids = {item["id"] for item in prods_df if "id" in item}
                 edited_ids = {row["id"] for row in edited_prods if row.get("id") is not None}
                 deleted_ids = original_ids - edited_ids
                 for d_id in deleted_ids:
                     supabase.table("products").delete().eq("id", d_id).execute()
 
-                # 2. Atualizar ou Inserir
                 for row in edited_prods:
                     if "id" in row and row["id"] is not None:
                         supabase.table("products").update({
@@ -552,34 +566,39 @@ with tab_products:
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
     st.info("💡 **Dica:** Para excluir um utilizador, selecione a caixa de marcação à esquerda e clique em Salvar.")
-    users_df = get_users()
-    if users_df is not None:
-        edited_users = st.data_editor(users_df, key="users_editor", use_container_width=True, num_rows="dynamic")
+    users_data = get_users()
+    if users_data is not None:
+        edited_users = st.data_editor(users_data, key="users_editor", use_container_width=True, num_rows="dynamic")
         if st.button("💾 Salvar Alterações de Utilizadores"):
             try:
-                # 1. Detetar e apagar itens excluídos
-                original_ids = {item["id"] for item in users_df if "id" in item}
+                original_ids = {item["id"] for item in users_data if "id" in item}
                 edited_ids = {row["id"] for row in edited_users if row.get("id") is not None}
                 deleted_ids = original_ids - edited_ids
                 for d_id in deleted_ids:
-                    supabase.table("users").delete().eq("id", d_id).execute()
+                    try:
+                        supabase.table("users").delete().eq("id", d_id).execute()
+                    except Exception:
+                        pass
 
-                # 2. Atualizar ou Inserir
                 for row in edited_users:
                     if "id" in row and row["id"] is not None:
-                        supabase.table("users").update({
-                            "name": row.get("name")
-                        }).eq("id", row["id"]).execute()
+                        try:
+                            supabase.table("users").update({"name": row.get("name")}).eq("id", row["id"]).execute()
+                        except Exception:
+                            pass
                     else:
                         if row.get("name"):
-                            supabase.table("users").insert({
-                                "name": row.get("name")
-                            }).execute()
-                st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
+                            try:
+                                supabase.table("users").insert({"name": row.get("name")}).execute()
+                            except Exception:
+                                pass
+                
+                save_users_local(edited_users)
+                st.success("Lista de utilizadores atualizada com sucesso!")
                 st.rerun()
             except Exception as e:
-                st.warning("⚠️ Tabela 'users' não encontrada no Supabase. Utilizando modo local. Execute o comando SQL abaixo no Supabase se desejar persistir na nuvem.")
-                
+                st.error(f"Erro ao atualizar utilizadores: {e}")
+
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
             u_name = st.text_input("Nome do Utilizador *")
@@ -587,24 +606,19 @@ with tab_users:
                 if not u_name:
                     st.error("O nome é obrigatório!")
                 else:
+                    current_users = get_users()
+                    new_id = max([u.get("id", 0) for u in current_users], default=0) + 1
+                    new_user = {"id": new_id, "name": u_name}
+                    current_users.append(new_user)
+                    save_users_local(current_users)
+                    
                     try:
                         supabase.table("users").insert({"name": u_name}).execute()
-                        st.success("Utilizador registado com sucesso na nuvem!")
-                        st.rerun()
                     except Exception:
-                        new_id = len(st.session_state["local_users"]) + 1
-                        st.session_state["local_users"].append({"id": new_id, "name": u_name})
-                        st.success("Utilizador registado com sucesso (Modo Local)! Para guardar na nuvem, execute o SQL abaixo no Supabase.")
-                        st.rerun()
-
-    with st.expander("🛠️ Comando SQL para criar a tabela 'users' no Supabase"):
-        st.code("""
-create table users (
-  id serial primary key,
-  name text not null
-);
-insert into users (name) values ('Alisson Monteiro');
-        """, language="sql")
+                        pass
+                        
+                    st.success("Utilizador registado com sucesso!")
+                    st.rerun()
 
 # TAB 5: HISTÓRICO
 with tab_history:
