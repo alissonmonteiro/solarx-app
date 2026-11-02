@@ -18,7 +18,50 @@ st.set_page_config(
 
 # ESTILO CSS COM CORREÇÃO ROBUSTA PARA A CAIXA DE SELEÇÃO DE EQUIPAMENTOS
 st.markdown("""
-    
+    <style>
+        /* Estilo para o botão Enter no login */
+        div.stFormSubmitButton > button {
+            background-color: #FFB107 !important;
+            color: white !important;
+            font-weight: bold;
+            border-radius: 6px;
+            border: none;
+            height: 42px;
+            width: 100%;
+        }
+        div.stFormSubmitButton > button:hover {
+            background-color: #e09b00 !important;
+            color: white !important;
+        }
+
+        /* Caixa de seleção de equipamentos - Fundo verde destacado e legibilidade */
+        .stSelectbox [data-baseweb="select"], 
+        .stSelectbox [data-baseweb="select"] > div {
+            background-color: #d4edda !important;
+            border: 2px solid #28a745 !important;
+            border-radius: 8px !important;
+        }
+        
+        .stSelectbox [data-baseweb="select"] span,
+        .stSelectbox [data-baseweb="select"] div {
+            color: #155724 !important;
+            font-weight: 500;
+        }
+
+        /* Moldura para as tabelas de edição */
+        div[data-testid="stDataEditor"] {
+            border: 1px solid rgba(40, 167, 69, 0.4);
+            border-radius: 8px;
+        }
+
+        /* Responsividade do banner */
+        [data-testid="stImage"] img {
+            width: 100%;
+            max-height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+    </style>
 """, unsafe_allow_html=True)
 
 # CONEXÃO COM O SUPABASE
@@ -97,7 +140,6 @@ def get_users():
     except Exception:
         pass
     
-    # Fallback persistente local se a tabela Supabase não existir
     if os.path.exists(USERS_FILE):
         try:
             with open(USERS_FILE, "r", encoding="utf-8") as f:
@@ -149,7 +191,7 @@ def update_product_row(row_idx, product_dict):
         st.session_state[f"price_{row_idx}"] = 0.0
         st.session_state[f"qty_{row_idx}"] = 0.0
 
-# GERAÇÃO DE PDF
+# GERAÇÃO DE PDF DE ORÇAMENTO
 PDF_POS = {
     "proposal": (502.5, 802.0),
     "issue_date": (502.5, 791.6),
@@ -244,6 +286,41 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
 
     c.setFont("Helvetica-Bold", 11)
     c.drawRightString(*PDF_POS["tot_right_final_right"], money(total_global))
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL PARA FORNECEDOR ---
+def generate_requisition_pdf_buffer(quote, client, items):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_img = os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")
+
+    if os.path.exists(base_img):
+        c.drawImage(ImageReader(base_img), 0, 0, width=w, height=h, preserveAspectRatio=False, mask="auto")
+
+    date_str = datetime.now().strftime("%d/%m/%Y")
+    
+    # Preenchimento do cabeçalho da requisição
+    draw_text(c, 400, 746, date_str, 8, True)
+    draw_text(c, 400, 730, str(quote.get("proposal", "")), 8, True)
+    draw_text(c, 400, 715, str(client.get("name", ""))[:35], 8, True)
+    draw_text(c, 400, 700, "Fornecimento de Equipamento", 8, False)
+
+    # Preenchimento da lista de itens requisitados (sem valores comerciais)
+    start_y = 568
+    step_y = 24.2
+    for i, it in enumerate(items[:10]):
+        y = start_y - (i * step_y)
+        draw_text(c, 68, y, f"{i+1:02d}", 8, False)
+        draw_text(c, 115, y, str(it.get("description", ""))[:55], 8, False)
+        c.setFont("Helvetica", 8)
+        c.drawRightString(480, y, f"{float(it.get('qty', 0)):g}")
+        draw_text(c, 515, y, str(it.get("unit", "UN"))[:5], 8, False)
 
     c.save()
     buffer.seek(0)
@@ -622,10 +699,41 @@ with tab_users:
 
 # TAB 5: HISTÓRICO
 with tab_history:
-    st.subheader("Orçamentos Salvos no Supabase")
+    st.subheader("Orçamentos Salvos no Supabase e Requisições de Material")
     try:
-        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(name)").order("created_at", desc=True).execute()
+        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
         if quotes_res.data:
-            st.dataframe(quotes_res.data, use_container_width=True)
+            for q in quotes_res.data:
+                client_data = q.get("clients") or {}
+                client_name = client_data.get("name", "Cliente Desconhecido")
+                prop_num = q.get("proposal")
+                q_date = q.get("created_at", "")[:10]
+                q_total = q.get("total", 0)
+                
+                with st.expander(f"Proposta Nº {prop_num} - {client_name} (Data: {q_date} | Total: {money(q_total)} €)"):
+                    st.write(f"**Cliente:** {client_name} | **NIF:** {client_data.get('nif', '')}")
+                    st.write(f"**Notas:** {q.get('notes', '')}")
+                    
+                    items_res = supabase.table("quote_items").select("*").eq("quote_id", q["id"]).execute()
+                    quote_items = items_res.data or []
+                    
+                    if quote_items:
+                        st.markdown("**Itens do Orçamento:**")
+                        for idx, item in enumerate(quote_items, 1):
+                            st.text(f"{idx:02d}. {item.get('description')} | Qtd: {item.get('qty'):g} {item.get('unit', 'UN')}")
+                    
+                    if st.button(f"📄 Gerar Requisição de Material (Proposta {prop_num})", key=f"req_btn_{q['id']}"):
+                        if not os.path.exists(os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")):
+                            st.warning("⚠️ Imagem de fundo da requisição (`BASE_Requisicao_SOLARX.jpg`) não encontrada no repositório. O PDF será gerado com o layout base.")
+                        
+                        req_buf = generate_requisition_pdf_buffer(q, client_data, quote_items)
+                        st.success("Requisição de material gerada com sucesso!")
+                        st.download_button(
+                            label=f"⬇️ Descarregar Requisição - Proposta {prop_num}",
+                            data=req_buf,
+                            file_name=f"Requisicao_Material_Proposta_{prop_num}_{client_name.replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key=f"dl_req_{q['id']}"
+                        )
     except Exception as e:
-        st.info("Nenhum orçamento encontrado ou tabela em falta.")
+        st.info(f"Nenhum orçamento encontrado ou erro ao carregar histórico: {e}")
