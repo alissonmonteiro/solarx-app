@@ -305,13 +305,13 @@ def generate_requisition_pdf_buffer(quote, client, items):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # Preenchimento do cabeçalho da requisição
-    draw_text(c, 400, 746, date_str, 8, True)
-    draw_text(c, 400, 730, str(quote.get("proposal", "")), 8, True)
-    draw_text(c, 400, 715, str(client.get("name", ""))[:35], 8, True)
-    draw_text(c, 400, 700, "Fornecimento de Equipamento", 8, False)
+    # Preenchimento ajustado do cabeçalho da requisição
+    draw_text(c, 400, 755, date_str, 8, True)
+    draw_text(c, 400, 740, str(quote.get("proposal", "")), 8, True)
+    draw_text(c, 400, 725, str(client.get("name", ""))[:35], 8, True)
+    draw_text(c, 400, 710, "Fornecimento de Equipamento", 8, False)
 
-    # Preenchimento da lista de itens requisitados (sem valores comerciais)
+    # Preenchimento da lista de itens requisitados (apenas os selecionados)
     start_y = 568
     step_y = 24.2
     for i, it in enumerate(items[:10]):
@@ -717,23 +717,33 @@ with tab_history:
                     items_res = supabase.table("quote_items").select("*").eq("quote_id", q["id"]).execute()
                     quote_items = items_res.data or []
                     
+                    selected_requisition_items = []
                     if quote_items:
-                        st.markdown("**Itens do Orçamento:**")
+                        st.markdown("**Selecione os itens para incluir na Requisição ao Fornecedor:**")
                         for idx, item in enumerate(quote_items, 1):
-                            st.text(f"{idx:02d}. {item.get('description')} | Qtd: {item.get('qty'):g} {item.get('unit', 'UN')}")
+                            include_item = st.checkbox(
+                                f"{item.get('description')} (Qtd: {item.get('qty'):g} {item.get('unit', 'UN')})",
+                                value=True,
+                                key=f"req_item_{q['id']}_{idx}"
+                            )
+                            if include_item:
+                                selected_requisition_items.append(item)
                     
                     if st.button(f"📄 Gerar Requisição de Material (Proposta {prop_num})", key=f"req_btn_{q['id']}"):
-                        if not os.path.exists(os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")):
-                            st.warning("⚠️ Imagem de fundo da requisição (`BASE_Requisicao_SOLARX.jpg`) não encontrada no repositório. O PDF será gerado com o layout base.")
-                        
-                        req_buf = generate_requisition_pdf_buffer(q, client_data, quote_items)
-                        st.success("Requisição de material gerada com sucesso!")
-                        st.download_button(
-                            label=f"⬇️ Descarregar Requisição - Proposta {prop_num}",
-                            data=req_buf,
-                            file_name=f"Requisicao_Material_Proposta_{prop_num}_{client_name.replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            key=f"dl_req_{q['id']}"
-                        )
+                        if not selected_requisition_items:
+                            st.warning("⚠️ Selecione pelo menos um item para gerar a requisição.")
+                        else:
+                            if not os.path.exists(os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")):
+                                st.warning("⚠️ Imagem de fundo da requisição (`BASE_Requisicao_SOLARX.jpg`) não encontrada no repositório.")
+                            
+                            req_buf = generate_requisition_pdf_buffer(q, client_data, selected_requisition_items)
+                            st.success("Requisição de material gerada com sucesso!")
+                            st.download_button(
+                                label=f"⬇️ Descarregar Requisição - Proposta {prop_num}",
+                                data=req_buf,
+                                file_name=f"Requisicao_Material_Proposta_{prop_num}_{client_name.replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key=f"dl_req_{q['id']}"
+                            )
     except Exception as e:
         st.info(f"Nenhum orçamento encontrado ou erro ao carregar histórico: {e}")
