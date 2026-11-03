@@ -291,7 +291,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL PARA FORNECEDOR ---
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO CONFORME A GRELHA) ---
 def generate_requisition_pdf_buffer(quote, client, items):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -305,22 +305,26 @@ def generate_requisition_pdf_buffer(quote, client, items):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # Preenchimento ajustado do cabeçalho da requisição
-    draw_text(c, 400, 755, date_str, 8, True)
-    draw_text(c, 400, 740, str(quote.get("proposal", "")), 8, True)
-    draw_text(c, 400, 725, str(client.get("name", ""))[:35], 8, True)
-    draw_text(c, 400, 710, "Fornecimento de Equipamento", 8, False)
+    # Coordenadas do Cabeçalho alinhadas com as caixas vermelhas da grelha
+    draw_text(c, 305, 755, "SOLARX LDA", 8, False)                # Empresa
+    draw_text(c, 240, 729, "322499895", 8, False)               # NIF / Contribuinte
+    draw_text(c, 240, 703, "Alisson Monteiro", 8, False)          # Elaborado por
+    draw_text(c, 240, 678, "Comercial / Logística", 8, False)     # Email / Contacto
+    
+    draw_text(c, 620 - 295, 755, date_str, 8, False)              # Data do Pedido (Ajustado para x=325)
+    draw_text(c, 620 - 295, 729, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
+    draw_text(c, 620 - 295, 703, str(client.get("name", ""))[:32], 8, False) # Cliente Final / Obra
 
-    # Preenchimento da lista de itens requisitados (apenas os selecionados)
-    start_y = 568
-    step_y = 24.2
-    for i, it in enumerate(items[:10]):
+    # Preenchimento da Tabela de Itens (Até 13 linhas conforme a grelha)
+    start_y = 571
+    step_y = 22.15
+    for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 68, y, f"{i+1:02d}", 8, False)
-        draw_text(c, 115, y, str(it.get("description", ""))[:55], 8, False)
+        draw_text(c, 71, y, f"{i+1:02d}", 8, False)              # Nº (Coluna 1)
+        draw_text(c, 118, y, str(it.get("description", ""))[:58], 8, False) # Descrição (Coluna 2)
         c.setFont("Helvetica", 8)
-        c.drawRightString(480, y, f"{float(it.get('qty', 0)):g}")
-        draw_text(c, 515, y, str(it.get("unit", "UN"))[:5], 8, False)
+        c.drawRightString(725 - 250, y, f"{float(it.get('qty', 0)):g}") # Qtd. (Ajustado para x=475)
+        draw_text(c, 762 - 250, y, str(it.get("unit", "UN"))[:5], 8, False)  # Unidade (Ajustado para x=512)
 
     c.save()
     buffer.seek(0)
