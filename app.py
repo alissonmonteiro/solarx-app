@@ -291,8 +291,8 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO CONFORME A GRELHA) ---
-def generate_requisition_pdf_buffer(quote, client, items):
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO EXATAMENTE CONFORME A GRELHA) ---
+def generate_requisition_pdf_buffer(quote, items):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
@@ -305,26 +305,28 @@ def generate_requisition_pdf_buffer(quote, client, items):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # Coordenadas do Cabeçalho alinhadas com as caixas vermelhas da grelha
-    draw_text(c, 305, 755, "SOLARX LDA", 8, False)                # Empresa
-    draw_text(c, 240, 729, "322499895", 8, False)               # NIF / Contribuinte
-    draw_text(c, 240, 703, "Alisson Monteiro", 8, False)          # Elaborado por
-    draw_text(c, 240, 678, "Comercial / Logística", 8, False)     # Email / Contacto
+    # 1. Dados do Requerente (Esquerda)
+    draw_text(c, 155, 742, "SOLARX LDA", 8, False)                 # Empresa
+    draw_text(c, 155, 715, "322499895", 8, False)                # NIF / Contribuinte
+    draw_text(c, 155, 688, str(quote.get("prepared_by", "Alisson Monteiro")), 8, False) # Elaborado por
+    draw_text(c, 155, 661, "Comercial / Logística", 8, False)      # Email / Contacto
     
-    draw_text(c, 620 - 295, 755, date_str, 8, False)              # Data do Pedido (Ajustado para x=325)
-    draw_text(c, 620 - 295, 729, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
-    draw_text(c, 620 - 295, 703, str(client.get("name", ""))[:32], 8, False) # Cliente Final / Obra
+    # 2. Detalhes da Encomenda (Direita) - SEM O NOME DO CLIENTE CONFORME SOLICITADO
+    draw_text(c, 400, 742, date_str, 8, False)                     # Data do Pedido
+    draw_text(c, 400, 715, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
+    # Campo "Cliente Final / Obra" omitido intencionalmente
+    draw_text(c, 400, 661, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
 
-    # Preenchimento da Tabela de Itens (Até 13 linhas conforme a grelha)
-    start_y = 571
-    step_y = 22.15
+    # 3. Tabela de Artigos Requisitados (Até 13 linhas perfeitamente alinhadas com as caixas vermelhas)
+    start_y = 548
+    step_y = 23.5
     for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 71, y, f"{i+1:02d}", 8, False)              # Nº (Coluna 1)
-        draw_text(c, 118, y, str(it.get("description", ""))[:58], 8, False) # Descrição (Coluna 2)
+        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº (Coluna #)
+        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
         c.setFont("Helvetica", 8)
-        c.drawRightString(725 - 250, y, f"{float(it.get('qty', 0)):g}") # Qtd. (Ajustado para x=475)
-        draw_text(c, 762 - 250, y, str(it.get("unit", "UN"))[:5], 8, False)  # Unidade (Ajustado para x=512)
+        c.drawRightString(475, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
+        draw_text(c, 508, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
 
     c.save()
     buffer.seek(0)
@@ -476,7 +478,8 @@ with tab_quote:
                     "discount": float(discount_dec),
                     "installation_cost": float(inst_cost_dec),
                     "notes": notes_in,
-                    "total": float(total_global)
+                    "total": float(total_global),
+                    "prepared_by": selected_user
                 }).execute()
                 
                 qid = q_res.data[0]["id"]
@@ -705,7 +708,7 @@ with tab_users:
 with tab_history:
     st.subheader("Orçamentos Salvos no Supabase e Requisições de Material")
     try:
-        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
+        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, prepared_by, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
         if quotes_res.data:
             for q in quotes_res.data:
                 client_data = q.get("clients") or {}
@@ -740,12 +743,12 @@ with tab_history:
                             if not os.path.exists(os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")):
                                 st.warning("⚠️ Imagem de fundo da requisição (`BASE_Requisicao_SOLARX.jpg`) não encontrada no repositório.")
                             
-                            req_buf = generate_requisition_pdf_buffer(q, client_data, selected_requisition_items)
+                            req_buf = generate_requisition_pdf_buffer(q, selected_requisition_items)
                             st.success("Requisição de material gerada com sucesso!")
                             st.download_button(
                                 label=f"⬇️ Descarregar Requisição - Proposta {prop_num}",
                                 data=req_buf,
-                                file_name=f"Requisicao_Material_Proposta_{prop_num}_{client_name.replace(' ', '_')}.pdf",
+                                file_name=f"Requisicao_Material_Proposta_{prop_num}.pdf",
                                 mime="application/pdf",
                                 key=f"dl_req_{q['id']}"
                             )
