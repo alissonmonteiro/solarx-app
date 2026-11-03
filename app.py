@@ -1,6 +1,5 @@
 import os
 import io
-import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import streamlit as st
@@ -75,7 +74,6 @@ MARGEM_EQUIP = Decimal("0.15")
 MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
-USERS_FILE = "users.json"
 
 # --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
 def check_password():
@@ -117,7 +115,7 @@ def sale_price(cost, margin=MARGEM_EQUIP):
     cost_dec = Decimal(str(cost or 0))
     return (cost_dec * (Decimal("1") + margin)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-# DADOS SUPABASE E PERSISTÊNCIA LOCAL
+# DADOS SUPABASE
 def get_clients():
     try:
         res = supabase.table("clients").select("*").order("number").execute()
@@ -134,29 +132,12 @@ def get_products():
 
 def get_users():
     try:
-        res = supabase.table("users").select("*").order("name").execute()
+        res = supabase.table("users").select("*").order("id").execute()
         if res.data:
             return res.data
     except Exception:
         pass
-    
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if data:
-                    return data
-        except Exception:
-            pass
-            
     return [{"id": 1, "name": "Alisson Monteiro"}]
-
-def save_users_local(users_list):
-    try:
-        with open(USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(users_list, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
 
 def get_next_proposal():
     try:
@@ -291,8 +272,8 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO EXATAMENTE CONFORME A GRELHA) ---
-def generate_requisition_pdf_buffer(quote, items):
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL ---
+def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
@@ -308,22 +289,21 @@ def generate_requisition_pdf_buffer(quote, items):
     # 1. Dados do Requerente (Esquerda)
     draw_text(c, 155, 742, "SOLARX LDA", 8, False)                 # Empresa
     draw_text(c, 155, 715, "322499895", 8, False)                # NIF / Contribuinte
-    draw_text(c, 155, 688, str(quote.get("prepared_by", "Alisson Monteiro")), 8, False) # Elaborado por
+    draw_text(c, 155, 688, str(prepared_by_name), 8, False)      # Elaborado por
     draw_text(c, 155, 661, "Comercial / Logística", 8, False)      # Email / Contacto
     
-    # 2. Detalhes da Encomenda (Direita) - SEM O NOME DO CLIENTE CONFORME SOLICITADO
+    # 2. Detalhes da Encomenda (Direita) - SEM O NOME DO CLIENTE
     draw_text(c, 400, 742, date_str, 8, False)                     # Data do Pedido
     draw_text(c, 400, 715, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
-    # Campo "Cliente Final / Obra" omitido intencionalmente
     draw_text(c, 400, 661, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
 
-    # 3. Tabela de Artigos Requisitados (Até 13 linhas perfeitamente alinhadas com as caixas vermelhas)
+    # 3. Tabela de Artigos Requisitados
     start_y = 548
     step_y = 23.5
     for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº (Coluna #)
-        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
+        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº
+        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação
         c.setFont("Helvetica", 8)
         c.drawRightString(475, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
         draw_text(c, 508, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
@@ -478,8 +458,7 @@ with tab_quote:
                     "discount": float(discount_dec),
                     "installation_cost": float(inst_cost_dec),
                     "notes": notes_in,
-                    "total": float(total_global),
-                    "prepared_by": selected_user
+                    "total": float(total_global)
                 }).execute()
                 
                 qid = q_res.data[0]["id"]
@@ -646,10 +625,10 @@ with tab_products:
                     st.success("Equipamento cadastrado com sucesso!")
                     st.rerun()
 
-# TAB 4: UTILIZADORES
+# TAB 4: UTILIZADORES (INTEGRADO DIRETAMENTE NO SUPABASE)
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
-    st.info("💡 **Dica:** Para excluir um utilizador, selecione a caixa de marcação à esquerda e clique em Salvar.")
+    st.info("💡 **Dica:** Os utilizadores ficam agora guardados permanentemente na nuvem (Supabase).")
     users_data = get_users()
     if users_data is not None:
         edited_users = st.data_editor(users_data, key="users_editor", use_container_width=True, num_rows="dynamic")
@@ -677,11 +656,10 @@ with tab_users:
                             except Exception:
                                 pass
                 
-                save_users_local(edited_users)
-                st.success("Lista de utilizadores atualizada com sucesso!")
+                st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores: {e}")
+                st.error(f"Erro ao atualizar utilizadores. Certifique-se de que a tabela 'users' existe no Supabase. Detalhe: {e}")
 
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
@@ -690,25 +668,27 @@ with tab_users:
                 if not u_name:
                     st.error("O nome é obrigatório!")
                 else:
-                    current_users = get_users()
-                    new_id = max([u.get("id", 0) for u in current_users], default=0) + 1
-                    new_user = {"id": new_id, "name": u_name}
-                    current_users.append(new_user)
-                    save_users_local(current_users)
-                    
                     try:
                         supabase.table("users").insert({"name": u_name}).execute()
-                    except Exception:
-                        pass
-                        
-                    st.success("Utilizador registado com sucesso!")
-                    st.rerun()
+                        st.success("Utilizador registado com sucesso na nuvem!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao registar utilizador: {e}")
+
+    with st.expander("🛠️ Comando SQL (caso a tabela 'users' não exista no Supabase)"):
+        st.code("""
+create table users (
+  id serial primary key,
+  name text not null
+);
+insert into users (name) values ('Alisson Monteiro');
+        """, language="sql")
 
 # TAB 5: HISTÓRICO
 with tab_history:
     st.subheader("Orçamentos Salvos no Supabase e Requisições de Material")
     try:
-        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, prepared_by, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
+        quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
         if quotes_res.data:
             for q in quotes_res.data:
                 client_data = q.get("clients") or {}
@@ -736,6 +716,11 @@ with tab_history:
                             if include_item:
                                 selected_requisition_items.append(item)
                     
+                    # Seletor do utilizador para a requisição deste histórico
+                    users_list = get_users()
+                    user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
+                    req_user = st.selectbox("Elaborado Por (para a Requisição)", options=user_names, key=f"req_user_{q['id']}")
+
                     if st.button(f"📄 Gerar Requisição de Material (Proposta {prop_num})", key=f"req_btn_{q['id']}"):
                         if not selected_requisition_items:
                             st.warning("⚠️ Selecione pelo menos um item para gerar a requisição.")
@@ -743,7 +728,7 @@ with tab_history:
                             if not os.path.exists(os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")):
                                 st.warning("⚠️ Imagem de fundo da requisição (`BASE_Requisicao_SOLARX.jpg`) não encontrada no repositório.")
                             
-                            req_buf = generate_requisition_pdf_buffer(q, selected_requisition_items)
+                            req_buf = generate_requisition_pdf_buffer(q, selected_requisition_items, req_user)
                             st.success("Requisição de material gerada com sucesso!")
                             st.download_button(
                                 label=f"⬇️ Descarregar Requisição - Proposta {prop_num}",
