@@ -291,7 +291,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO MILIMETRICAMENTE COM A GRELHA 02) ---
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRAÇÃO MILIMÉTRICA 100% PRECISA) ---
 def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -305,26 +305,23 @@ def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # 1. Dados do Requerente (Esquerda - Alturas exatas conforme a grelha 02)
-    draw_text(c, 142, 698, "SOLARX LDA", 8, False)                 # Empresa
-    draw_text(c, 142, 642, "322499895", 8, False)                # NIF / Contribuinte
-    draw_text(c, 142, 586, str(prepared_by_name), 8, False)      # Elaborado por
-    draw_text(c, 142, 530, "Comercial / Logística", 8, False)      # Email / Contacto
+    # 1. Elaborado por (Esquerda - Coordenada exata da grelha 02)
+    draw_text(c, 235, 635, str(prepared_by_name), 8, False)
     
-    # 2. Detalhes da Encomenda (Direita - Alturas exatas conforme a grelha 02, sem nome do cliente)
-    draw_text(c, 395, 698, date_str, 8, False)                     # Data do Pedido
-    draw_text(c, 395, 642, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
-    draw_text(c, 395, 530, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
+    # 2. Detalhes da Encomenda (Direita - Coordenadas exatas da grelha 02)
+    draw_text(c, 400, 695, date_str, 8, False)                     # Data do Pedido
+    draw_text(c, 400, 635, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
 
-    # 3. Tabela de Artigos Requisitados (Apenas Descrição, Qtd e Unidade, sem imprimir números redundantes)
-    start_y = 518
-    step_y = 22.5
+    # 3. Tabela de Artigos Requisitados (Alinhado milimetricamente com a grelha 02)
+    start_y = 520
+    step_y = 20.0
     for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 102, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
+        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº
+        draw_text(c, 115, y, str(it.get("description", ""))[:55], 8, False) # Descrição
         c.setFont("Helvetica", 8)
-        c.drawRightString(492, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
-        draw_text(c, 527, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
+        c.drawRightString(505, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
+        draw_text(c, 520, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
 
     c.save()
     buffer.seek(0)
