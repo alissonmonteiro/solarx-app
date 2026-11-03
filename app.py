@@ -1,5 +1,6 @@
 import os
 import io
+import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import streamlit as st
@@ -74,6 +75,7 @@ MARGEM_EQUIP = Decimal("0.15")
 MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
+USERS_FILE = "users_backup.json"
 
 # --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
 def check_password():
@@ -137,7 +139,25 @@ def get_users():
             return res.data
     except Exception:
         pass
+    
+    # Fallback seguro caso a tabela ainda não exista no Supabase
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data:
+                    return data
+        except Exception:
+            pass
+            
     return [{"id": 1, "name": "Alisson Monteiro"}]
+
+def save_users_local(users_list):
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users_list, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
 def get_next_proposal():
     try:
@@ -625,10 +645,10 @@ with tab_products:
                     st.success("Equipamento cadastrado com sucesso!")
                     st.rerun()
 
-# TAB 4: UTILIZADORES (ROBUSTO COM CRIAÇÃO AUTOMÁTICA DA TABELA SE NECESSÁRIO)
+# TAB 4: UTILIZADORES
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
-    st.info("💡 **Dica:** Os utilizadores ficam guardados permanentemente na nuvem (Supabase).")
+    st.info("💡 **Dica:** Os utilizadores ficam guardados na nuvem (Supabase).")
     
     users_data = get_users()
     if users_data is not None:
@@ -657,10 +677,11 @@ with tab_users:
                             except Exception:
                                 pass
                 
-                st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
+                save_users_local(edited_users)
+                st.success("Lista de utilizadores atualizada com sucesso!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores: {e}")
+                st.error(f"Erro ao atualizar utilizadores na nuvem. Verifique se a tabela 'users' foi criada no Supabase. Detalhe: {e}")
 
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
@@ -670,13 +691,17 @@ with tab_users:
                     st.error("O nome é obrigatório!")
                 else:
                     try:
-                        # Tenta inserir diretamente na tabela 'users'
                         supabase.table("users").insert({"name": u_name}).execute()
                         st.success("Utilizador registado com sucesso na nuvem!")
                         st.rerun()
                     except Exception as err:
-                        # Se a tabela ainda não existir no Supabase, cria-a automaticamente via comando SQL ou aviso claro
-                        st.error(f"Erro: A tabela 'users' ainda não foi criada no Supabase. Crie-a no painel do Supabase executando: CREATE TABLE users (id serial primary key, name text not null); Detalhe: {err}")
+                        # Fallback local se a tabela ainda não existir no Supabase
+                        current_users = get_users()
+                        new_id = max([u.get("id", 0) for u in current_users], default=0) + 1
+                        current_users.append({"id": new_id, "name": u_name})
+                        save_users_local(current_users)
+                        st.warning(f"⚠️ Tabela 'users' não encontrada no Supabase. Utilizador guardado temporariamente em segurança. (Crie a tabela no Supabase para sincronização total).")
+                        st.rerun()
 
 # TAB 5: HISTÓRICO
 with tab_history:
@@ -710,7 +735,6 @@ with tab_history:
                             if include_item:
                                 selected_requisition_items.append(item)
                     
-                    # Seletor do utilizador para a requisição
                     users_list = get_users()
                     user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
                     req_user = st.selectbox("Elaborado Por (para a Requisição)", options=user_names, key=f"req_user_{q['id']}")
