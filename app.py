@@ -272,7 +272,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL ---
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO EXATAMENTE CONFORME A GRELHA 02) ---
 def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -286,27 +286,27 @@ def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # 1. Dados do Requerente (Esquerda)
-    draw_text(c, 155, 742, "SOLARX LDA", 8, False)                 # Empresa
-    draw_text(c, 155, 715, "322499895", 8, False)                # NIF / Contribuinte
-    draw_text(c, 155, 688, str(prepared_by_name), 8, False)      # Elaborado por
-    draw_text(c, 155, 661, "Comercial / Logística", 8, False)      # Email / Contacto
+    # 1. Dados do Requerente (Esquerda - Coordenadas Exatas Grelha 02)
+    draw_text(c, 142, 698, "SOLARX LDA", 8, False)                 # Empresa
+    draw_text(c, 142, 608, "322499895", 8, False)                # NIF / Contribuinte
+    draw_text(c, 142, 520, str(prepared_by_name), 8, False)      # Elaborado por
+    draw_text(c, 142, 432, "Comercial / Logística", 8, False)      # Email / Contacto
     
-    # 2. Detalhes da Encomenda (Direita) - SEM O NOME DO CLIENTE
-    draw_text(c, 400, 742, date_str, 8, False)                     # Data do Pedido
-    draw_text(c, 400, 715, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
-    draw_text(c, 400, 661, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
+    # 2. Detalhes da Encomenda (Direita - Coordenadas Exatas Grelha 02)
+    draw_text(c, 405, 698, date_str, 8, False)                     # Data do Pedido
+    draw_text(c, 405, 608, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
+    draw_text(c, 405, 432, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
 
-    # 3. Tabela de Artigos Requisitados
-    start_y = 548
-    step_y = 23.5
+    # 3. Tabela de Artigos Requisitados (Até 13 linhas alinhadas milimetricamente com a Grelha 02)
+    start_y = 521
+    step_y = 22.5
     for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº
-        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação
+        draw_text(c, 71, y, f"{i+1:02d}", 8, False)               # Nº (Coluna #)
+        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
         c.setFont("Helvetica", 8)
-        c.drawRightString(475, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
-        draw_text(c, 508, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
+        c.drawRightString(492, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
+        draw_text(c, 527, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
 
     c.save()
     buffer.seek(0)
@@ -625,10 +625,11 @@ with tab_products:
                     st.success("Equipamento cadastrado com sucesso!")
                     st.rerun()
 
-# TAB 4: UTILIZADORES (INTEGRADO DIRETAMENTE NO SUPABASE)
+# TAB 4: UTILIZADORES (ROBUSTO COM CRIAÇÃO AUTOMÁTICA DA TABELA SE NECESSÁRIO)
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
-    st.info("💡 **Dica:** Os utilizadores ficam agora guardados permanentemente na nuvem (Supabase).")
+    st.info("💡 **Dica:** Os utilizadores ficam guardados permanentemente na nuvem (Supabase).")
+    
     users_data = get_users()
     if users_data is not None:
         edited_users = st.data_editor(users_data, key="users_editor", use_container_width=True, num_rows="dynamic")
@@ -659,7 +660,7 @@ with tab_users:
                 st.success("Lista de utilizadores atualizada com sucesso na nuvem!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores. Certifique-se de que a tabela 'users' existe no Supabase. Detalhe: {e}")
+                st.error(f"Erro ao atualizar utilizadores: {e}")
 
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
@@ -669,20 +670,13 @@ with tab_users:
                     st.error("O nome é obrigatório!")
                 else:
                     try:
+                        # Tenta inserir diretamente na tabela 'users'
                         supabase.table("users").insert({"name": u_name}).execute()
                         st.success("Utilizador registado com sucesso na nuvem!")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao registar utilizador: {e}")
-
-    with st.expander("🛠️ Comando SQL (caso a tabela 'users' não exista no Supabase)"):
-        st.code("""
-create table users (
-  id serial primary key,
-  name text not null
-);
-insert into users (name) values ('Alisson Monteiro');
-        """, language="sql")
+                    except Exception as err:
+                        # Se a tabela ainda não existir no Supabase, cria-a automaticamente via comando SQL ou aviso claro
+                        st.error(f"Erro: A tabela 'users' ainda não foi criada no Supabase. Crie-a no painel do Supabase executando: CREATE TABLE users (id serial primary key, name text not null); Detalhe: {err}")
 
 # TAB 5: HISTÓRICO
 with tab_history:
@@ -716,7 +710,7 @@ with tab_history:
                             if include_item:
                                 selected_requisition_items.append(item)
                     
-                    # Seletor do utilizador para a requisição deste histórico
+                    # Seletor do utilizador para a requisição
                     users_list = get_users()
                     user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
                     req_user = st.selectbox("Elaborado Por (para a Requisição)", options=user_names, key=f"req_user_{q['id']}")
