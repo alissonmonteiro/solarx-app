@@ -140,7 +140,6 @@ def get_users():
     except Exception:
         pass
     
-    # Fallback seguro caso a tabela ainda não exista no Supabase
     if os.path.exists(USERS_FILE):
         try:
             with open(USERS_FILE, "r", encoding="utf-8") as f:
@@ -292,7 +291,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO EXATAMENTE CONFORME A GRELHA 02) ---
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRADO MILIMETRICAMENTE COM A GRELHA 02) ---
 def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -306,24 +305,23 @@ def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
 
     date_str = datetime.now().strftime("%d/%m/%Y")
     
-    # 1. Dados do Requerente (Esquerda - Coordenadas Exatas Grelha 02)
+    # 1. Dados do Requerente (Esquerda - Alturas exatas conforme a grelha 02)
     draw_text(c, 142, 698, "SOLARX LDA", 8, False)                 # Empresa
-    draw_text(c, 142, 608, "322499895", 8, False)                # NIF / Contribuinte
-    draw_text(c, 142, 520, str(prepared_by_name), 8, False)      # Elaborado por
-    draw_text(c, 142, 432, "Comercial / Logística", 8, False)      # Email / Contacto
+    draw_text(c, 142, 642, "322499895", 8, False)                # NIF / Contribuinte
+    draw_text(c, 142, 586, str(prepared_by_name), 8, False)      # Elaborado por
+    draw_text(c, 142, 530, "Comercial / Logística", 8, False)      # Email / Contacto
     
-    # 2. Detalhes da Encomenda (Direita - Coordenadas Exatas Grelha 02)
-    draw_text(c, 405, 698, date_str, 8, False)                     # Data do Pedido
-    draw_text(c, 405, 608, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
-    draw_text(c, 405, 432, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
+    # 2. Detalhes da Encomenda (Direita - Alturas exatas conforme a grelha 02, sem nome do cliente)
+    draw_text(c, 395, 698, date_str, 8, False)                     # Data do Pedido
+    draw_text(c, 395, 642, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
+    draw_text(c, 395, 530, "Fornecimento de Equipamento", 8, False) # Tipo de Pedido
 
-    # 3. Tabela de Artigos Requisitados (Até 13 linhas alinhadas milimetricamente com a Grelha 02)
-    start_y = 521
+    # 3. Tabela de Artigos Requisitados (Apenas Descrição, Qtd e Unidade, sem imprimir números redundantes)
+    start_y = 518
     step_y = 22.5
     for i, it in enumerate(items[:13]):
         y = start_y - (i * step_y)
-        draw_text(c, 71, y, f"{i+1:02d}", 8, False)               # Nº (Coluna #)
-        draw_text(c, 120, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
+        draw_text(c, 102, y, str(it.get("description", ""))[:56], 8, False) # Designação do Material
         c.setFont("Helvetica", 8)
         c.drawRightString(492, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
         draw_text(c, 527, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
@@ -681,7 +679,7 @@ with tab_users:
                 st.success("Lista de utilizadores atualizada com sucesso!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores na nuvem. Verifique se a tabela 'users' foi criada no Supabase. Detalhe: {e}")
+                st.error(f"Erro ao atualizar utilizadores na nuvem. Detalhe: {e}")
 
     with st.expander("➕ Cadastrar Novo Utilizador"):
         with st.form("form_user"):
@@ -695,12 +693,11 @@ with tab_users:
                         st.success("Utilizador registado com sucesso na nuvem!")
                         st.rerun()
                     except Exception as err:
-                        # Fallback local se a tabela ainda não existir no Supabase
                         current_users = get_users()
                         new_id = max([u.get("id", 0) for u in current_users], default=0) + 1
                         current_users.append({"id": new_id, "name": u_name})
                         save_users_local(current_users)
-                        st.warning(f"⚠️ Tabela 'users' não encontrada no Supabase. Utilizador guardado temporariamente em segurança. (Crie a tabela no Supabase para sincronização total).")
+                        st.warning(f"⚠️ Erro ao gravar na nuvem: {err}. Guardado temporariamente em segurança.")
                         st.rerun()
 
 # TAB 5: HISTÓRICO
