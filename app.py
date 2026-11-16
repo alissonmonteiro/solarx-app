@@ -865,14 +865,47 @@ if page == "Novo Orçamento":
             })
 
     st.subheader("3. Instalação, IVA e condições")
-    st.caption("Introduza o preço de instalação que será cobrado ao cliente. O custo interno é separado e não aparece no orçamento.")
+    st.caption("Escolha a regra comercial de instalação. Pode preservar o cálculo antigo (custo + 20%) ou definir um preço totalmente manual.")
+    installation_mode = st.radio(
+        "Como calcular a instalação?",
+        options=("Cálculo anterior (+20% sobre custo)", "Preço manual (sem acréscimo)"),
+        horizontal=True,
+        key="sx_inst_mode",
+        help="No cálculo anterior, 500 € de custo tornam-se 600 € de preço sem IVA e 738 € com IVA a 23%."
+    )
     c1,c2,c3=st.columns([1,1,1])
-    with c1:
-        inst_sale_in=st.number_input("Preço instalação, sem IVA (€)",min_value=0.0,value=0.0,step=25.0,key="sx_inst_sale")
-    with c2:
-        inst_cost_in=st.number_input("Custo real de instalação (€)",min_value=0.0,value=0.0,step=25.0,key="sx_inst_cost",help="Mão de obra/subcontratação associada à instalação")
+    if installation_mode.startswith("Cálculo anterior"):
+        with c1:
+            inst_base_in=st.number_input(
+                "Instalação — custo base (€)", min_value=0.0, value=0.0,
+                step=25.0, key="sx_inst_base",
+                help="É o antigo campo 'Instalação (€ Custo)'. Aplica 20% de acréscimo para calcular o preço de venda."
+            )
+        inst_cost_dec=cents(inst_base_in)
+        inst_sale_dec=cents(inst_cost_dec*(Decimal("1")+MARGEM_INSTALACAO))
+        with c2:
+            st.metric("Preço de instalação sem IVA", money_eur(inst_sale_dec))
+    else:
+        with c1:
+            inst_sale_in=st.number_input(
+                "Preço instalação, sem IVA (€)", min_value=0.0, value=0.0,
+                step=25.0, key="sx_inst_sale",
+                help="Preço definido manualmente após a visita, sem qualquer acréscimo automático."
+            )
+        with c2:
+            inst_cost_in=st.number_input(
+                "Custo real de instalação (€)", min_value=0.0, value=0.0,
+                step=25.0, key="sx_inst_cost",
+                help="Mão de obra ou subcontratação efetivamente suportada pela SolarX. Não aparece no PDF."
+            )
+        inst_sale_dec=cents(inst_sale_in)
+        inst_cost_dec=cents(inst_cost_in)
     with c3:
-        extra_cost_in=st.number_input("Outros custos diretos (€)",min_value=0.0,value=0.0,step=10.0,key="sx_extra_cost",help="Deslocações, consumíveis, etc. Não são cobrados automaticamente ao cliente.")
+        extra_cost_in=st.number_input(
+            "Outros custos diretos (€)",min_value=0.0,value=0.0,step=10.0,
+            key="sx_extra_cost",help="Deslocações, consumíveis, etc. Não são cobrados automaticamente ao cliente."
+        )
+    extra_cost_dec=cents(extra_cost_in)
     c_disc,c_tax=st.columns([1,2])
     with c_disc:
         discount_in=st.number_input("Desconto equipamentos, sem IVA (€)",min_value=0.0,value=0.0,step=5.0,key="sx_discount")
@@ -887,9 +920,8 @@ if page == "Novo Orçamento":
 
     subtotal_items=sum((it["line_total"] for it in items_data),Decimal("0"))
     discount_dec=cents(discount_in)
-    inst_sale_dec=cents(inst_sale_in)
-    inst_cost_dec=cents(inst_cost_in)
-    extra_cost_dec=cents(extra_cost_in)
+    # inst_sale_dec e inst_cost_dec já refletem o modo escolhido acima.
+    # Modo anterior: custo + 20%; modo manual: preço indicado, sem acréscimo.
     equip_net=max(Decimal("0"),subtotal_items-discount_dec)
     equip_iva=cents(equip_net*IVA)
     installation_iva=cents(inst_sale_dec*inst_tax_rate)
