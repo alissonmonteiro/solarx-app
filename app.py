@@ -291,7 +291,7 @@ def generate_pdf_buffer(client, items, discount, installation_cost, notes, propo
     buffer.seek(0)
     return buffer
 
-# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL (CALIBRAÇÃO MILIMÉTRICA 100% PRECISA) ---
+# --- GERAÇÃO DE PDF DE REQUISIÇÃO DE MATERIAL ---
 def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -301,27 +301,127 @@ def generate_requisition_pdf_buffer(quote, items, prepared_by_name):
     base_img = os.path.join(base_dir, "BASE_Requisicao_SOLARX.jpg")
 
     if os.path.exists(base_img):
-        c.drawImage(ImageReader(base_img), 0, 0, width=w, height=h, preserveAspectRatio=False, mask="auto")
+        c.drawImage(
+            ImageReader(base_img), 0, 0,
+            width=w, height=h,
+            preserveAspectRatio=False,
+            mask="auto"
+        )
+
+    # As coordenadas abaixo foram medidas nos retângulos vermelhos da
+    # GRELHA_CALIBRACAO_03_REQUISICAO.pdf.
+    # A origem do ReportLab fica no canto inferior esquerdo.
+    # O deslocamento de 2 pt coloca a linha de base dentro de cada caixa.
+    req_pos = {
+        "prepared_by": (142.0, h - 192.1300 + 2.0, 76.0),
+        "email_contact": (142.0, h - 211.8960 + 2.0, 136.0),
+        "request_date": (421.9670, h - 151.5630 + 2.0, 76.0),
+        "proposal": (421.9670, h - 192.1300 + 2.0, 76.0),
+        "description_x": 62.0,
+        "description_width": 336.0,
+        "quantity_right": 456.3440,
+        "unit_x": 464.2620,
+        "unit_width": 71.9,
+    }
+
+    # Cada linha tem a sua coordenada Y individual, medida no retângulo
+    # correspondente. Não usar um passo fixo: a grelha tem pequenas
+    # diferenças verticais entre algumas linhas.
+    row_bottoms_top = [
+        321.2500, 351.6610, 381.5590, 411.9700, 441.4040,
+        471.8160, 501.7130, 532.1240, 561.4040, 591.3720,
+        621.8200, 652.1240, 682.4510,
+    ]
+    row_ys = [h - bottom + 2.0 for bottom in row_bottoms_top]
+
+    def draw_fitted_text(x, y, value, max_width, font_size=8.0, min_font_size=6.0):
+        """Escreve texto sem ultrapassar a largura do respetivo retângulo."""
+        value = str(value or "").strip()
+        if not value:
+            return
+
+        font_name = "Helvetica"
+        size = font_size
+        while size > min_font_size and c.stringWidth(value, font_name, size) > max_width:
+            size = round(size - 0.25, 2)
+
+        if c.stringWidth(value, font_name, size) > max_width:
+            suffix = "..."
+            while value and c.stringWidth(value + suffix, font_name, size) > max_width:
+                value = value[:-1]
+            value = value.rstrip() + suffix if value else suffix
+
+        c.setFillColorRGB(0, 0, 0)
+        c.setFont(font_name, size)
+        c.drawString(x, y, value)
 
     date_str = datetime.now().strftime("%d/%m/%Y")
-    
-    # 1. Elaborado por (Esquerda - Coordenada exata da grelha 02)
-    draw_text(c, 235, 635, str(prepared_by_name), 8, False)
-    
-    # 2. Detalhes da Encomenda (Direita - Coordenadas exatas da grelha 02)
-    draw_text(c, 400, 695, date_str, 8, False)                     # Data do Pedido
-    draw_text(c, 400, 635, str(quote.get("proposal", "")), 8, False) # Ref. Proposta Original
 
-    # 3. Tabela de Artigos Requisitados (Alinhado milimetricamente com a grelha 02)
-    start_y = 520
-    step_y = 20.0
+    # 1. Dados do requerente
+    draw_fitted_text(
+        req_pos["prepared_by"][0],
+        req_pos["prepared_by"][1],
+        prepared_by_name,
+        req_pos["prepared_by"][2]
+    )
+
+    # O NIF 322499895 já está impresso no próprio modelo-base da SOLARX.
+    # O campo Email / Contacto recebe os dados do cliente da proposta.
+    client_data = quote.get("clients") or {}
+    client_email = str(client_data.get("email") or "").strip()
+    client_phone = str(client_data.get("phone") or "").strip()
+    contact_parts = [value for value in (client_email, client_phone) if value]
+    email_contact = " | ".join(contact_parts)
+
+    draw_fitted_text(
+        req_pos["email_contact"][0],
+        req_pos["email_contact"][1],
+        email_contact,
+        req_pos["email_contact"][2]
+    )
+
+    # 2. Detalhes da encomenda
+    draw_fitted_text(
+        req_pos["request_date"][0],
+        req_pos["request_date"][1],
+        date_str,
+        req_pos["request_date"][2]
+    )
+    draw_fitted_text(
+        req_pos["proposal"][0],
+        req_pos["proposal"][1],
+        quote.get("proposal", ""),
+        req_pos["proposal"][2]
+    )
+
+    # 3. Tabela de artigos requisitados (13 linhas disponíveis)
+    # Os números 01 a 13 já estão impressos no modelo-base; por isso,
+    # apenas Descrição, Quantidade e Unidade são preenchidas pelo código.
     for i, it in enumerate(items[:13]):
-        y = start_y - (i * step_y)
-        draw_text(c, 72, y, f"{i+1:02d}", 8, False)               # Nº
-        draw_text(c, 115, y, str(it.get("description", ""))[:55], 8, False) # Descrição
+        y = row_ys[i]
+
+        draw_fitted_text(
+            req_pos["description_x"],
+            y,
+            it.get("description", ""),
+            req_pos["description_width"],
+            font_size=8.0,
+            min_font_size=6.0
+        )
+
+        qty_text = f"{float(it.get('qty', 0)):g}"
+        c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica", 8)
-        c.drawRightString(505, y, f"{float(it.get('qty', 0)):g}")  # Qtd.
-        draw_text(c, 520, y, str(it.get("unit", "UN"))[:5], 8, False)   # Unidade
+        c.drawRightString(req_pos["quantity_right"], y, qty_text)
+
+        draw_fitted_text(
+            req_pos["unit_x"],
+            y,
+            it.get("unit", "UN"),
+            req_pos["unit_width"],
+            font_size=8.0,
+            min_font_size=6.0
+        )
 
     c.save()
     buffer.seek(0)
