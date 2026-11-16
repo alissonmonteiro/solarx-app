@@ -636,26 +636,139 @@ with tab_quote:
 with tab_clients:
     st.subheader("Gerenciar e Editar Clientes")
     st.info(
-        "💡 **Dica:** Pode remover clientes sem histórico. Clientes associados a "
-        "orçamentos são preservados para não quebrar o histórico comercial."
+        "Remova linhas e clique em Salvar. Para eliminar clientes e os seus "
+        "orçamentos associados será exigida uma confirmação separada."
     )
 
-    # Mensagem temporária apresentada depois do rerun.
-    clients_notice = st.session_state.pop("clients_save_notice", None)
-    if clients_notice:
-        deleted_count = clients_notice.get("deleted", 0)
-        blocked = clients_notice.get("blocked", [])
-        if deleted_count:
-            st.success(f"{deleted_count} cliente(s) sem orçamentos associados foram removidos.")
-        if blocked:
-            blocked_text = ", ".join(blocked)
-            st.warning(
-                "Os seguintes clientes foram mantidos porque possuem orçamentos "
-                f"associados: {blocked_text}. Para preservar os documentos e o histórico, "
-                "não podem ser apagados enquanto esses orçamentos existirem."
+    notice = st.session_state.pop("clients_save_notice", None)
+    if notice:
+        st.success(notice)
+
+    # Uma eliminação pendente nunca é executada por um simples clique em Salvar.
+    pending = st.session_state.get("clients_pending_delete") or []
+    if pending:
+        st.error(
+            "⚠️ EXCLUSÃO DEFINITIVA: esta operação apagará os clientes abaixo, "
+            "os respetivos orçamentos e todos os artigos desses orçamentos. "
+            "Os documentos deixarão de estar disponíveis no histórico. "
+            "A operação não pode ser desfeita pela aplicação."
+        )
+        for entry in pending:
+            st.write(
+                f"• **{entry['name']}** (ID {entry['id']}): "
+                f"**{entry['quote_count']} orçamento(s)** e "
+                f"**{entry['item_count']} artigo(s)** a eliminar"
             )
-        if not deleted_count and not blocked:
-            st.success("Dados dos clientes atualizados com sucesso na nuvem.")
+        st.warning(
+            "Faça uma cópia de segurança no Supabase antes de confirmar. "
+            "A exclusão usa pedidos separados à API e não é uma transação única: "
+            "se ocorrer uma falha de rede, pode haver uma eliminação parcial."
+        )
+        confirmed = st.checkbox(
+            "Compreendo que os clientes, orçamentos e artigos serão eliminados definitivamente.",
+            key=f"clients_delete_ack_{st.session_state.get('clients_editor_version', 0)}"
+        )
+        confirmation = st.text_input(
+            'Para confirmar, escreva exatamente ELIMINAR',
+            key=f"clients_delete_phrase_{st.session_state.get('clients_editor_version', 0)}"
+        )
+        col_confirm, col_cancel = st.columns(2)
+        with col_confirm:
+            if st.button(
+                "🗑️ CONFIRMAR EXCLUSÃO DEFINITIVA",
+                type="primary",
+                disabled=not (confirmed and confirmation == "ELIMINAR"),
+                key="clients_delete_confirm_button"
+            ):
+                # Revalidar IDs, nome e contagens para evitar eliminar dados
+                # diferentes daqueles que foram apresentados na confirmação.
+                try:
+                    for entry in pending:
+                        cid = entry["id"]
+                        current = (
+                            supabase.table("clients").select("id,name")
+                            .eq("id", cid).execute().data or []
+                        )
+                        if len(current) != 1 or current[0]["name"] != entry["name"]:
+                            raise RuntimeError(
+                                f"O cliente ID {cid} foi alterado ou removido. "
+                                "Cancele e refaça a seleção."
+                            )
+                        quote_rows = (
+                            supabase.table("quotes").select("id")
+                            .eq("client_id", cid).execute().data or []
+                        )
+                        quote_ids = [q["id"] for q in quote_rows]
+                        if len(quote_ids) != entry["quote_count"]:
+                            raise RuntimeError(
+                                f"O número de orçamentos do cliente {entry['name']} "
+                                "mudou. Cancele e refaça a seleção."
+                            )
+                        item_count = 0
+                        for qid in quote_ids:
+                            item_count += len(
+                                supabase.table("quote_items").select("id")
+                                .eq("quote_id", qid).execute().data or []
+                            )
+                        if item_count != entry["item_count"]:
+                            raise RuntimeError(
+                                f"Os artigos associados a {entry['name']} "
+                                "mudaram. Cancele e refaça a seleção."
+                            )
+
+                    deleted_clients = 0
+                    deleted_quotes = 0
+                    deleted_items = 0
+                    for entry in pending:
+                        cid = entry["id"]
+                        quote_rows = (
+                            supabase.table("quotes").select("id")
+                            .eq("client_id", cid).execute().data or []
+                        )
+                        for q in quote_rows:
+                            qid = q["id"]
+                            # Ordem necessária para respeitar as foreign keys.
+                            item_rows = (
+                                supabase.table("quote_items").select("id")
+                                .eq("quote_id", qid).execute().data or []
+                            )
+                            supabase.table("quote_items").delete().eq("quote_id", qid).execute()
+                            if (supabase.table("quote_items").select("id")
+                                    .eq("quote_id", qid).limit(1).execute().data):
+                                raise RuntimeError(f"Artigos do orçamento ID {qid} não foram removidos.")
+                            deleted_items += len(item_rows)
+                            supabase.table("quotes").delete().eq("id", qid).execute()
+                            if (supabase.table("quotes").select("id")
+                                    .eq("id", qid).limit(1).execute().data):
+                                raise RuntimeError(f"Orçamento ID {qid} não foi removido.")
+                            deleted_quotes += 1
+                        supabase.table("clients").delete().eq("id", cid).execute()
+                        if (supabase.table("clients").select("id")
+                                .eq("id", cid).limit(1).execute().data):
+                            raise RuntimeError(f"Cliente ID {cid} não foi removido.")
+                        deleted_clients += 1
+
+                    st.session_state["clients_pending_delete"] = []
+                    st.session_state["clients_save_notice"] = (
+                        f"Exclusão confirmada: {deleted_clients} cliente(s), "
+                        f"{deleted_quotes} orçamento(s) e {deleted_items} artigo(s) removidos."
+                    )
+                    st.session_state["clients_editor_version"] = (
+                        st.session_state.get("clients_editor_version", 0) + 1
+                    )
+                    st.rerun()
+                except Exception as exc:
+                    st.error(
+                        "Não foi possível concluir a exclusão. Algumas operações podem "
+                        f"já ter ocorrido. Verifique o Supabase antes de tentar novamente. Detalhe: {exc}"
+                    )
+        with col_cancel:
+            if st.button("Cancelar exclusão", key="clients_delete_cancel_button"):
+                st.session_state["clients_pending_delete"] = []
+                st.session_state["clients_editor_version"] = (
+                    st.session_state.get("clients_editor_version", 0) + 1
+                )
+                st.rerun()
 
     clients_df = get_clients()
     if clients_df is not None:
@@ -670,58 +783,28 @@ with tab_clients:
             disabled=["id", "number"]
         )
 
-        if st.button("💾 Salvar Alterações de Clientes"):
+        if st.button("💾 Salvar Alterações de Clientes", disabled=bool(pending)):
             try:
                 original_rows = editor_rows(clients_df)
                 edited_rows = editor_rows(edited_clients)
                 original_by_id = {
                     row_id(row): row for row in original_rows if row_id(row) is not None
                 }
-                original_ids = set(original_by_id)
-                edited_ids = {
+                deleted_ids = set(original_by_id) - {
                     row_id(row) for row in edited_rows if row_id(row) is not None
                 }
-                deleted_ids = original_ids - edited_ids
 
-                # Primeiro verifica as referências. Um cliente com orçamento associado
-                # fica na base de dados para preservar quotes.client_id.
-                safe_to_delete = []
-                blocked_clients = []
-                for client_id in deleted_ids:
-                    quote_ref = (
-                        supabase.table("quotes")
-                        .select("id, proposal")
-                        .eq("client_id", client_id)
-                        .limit(1)
-                        .execute()
-                    )
-                    if quote_ref.data:
-                        old_client = original_by_id.get(client_id, {})
-                        label = old_client.get("name") or f"ID {client_id}"
-                        proposal_ref = quote_ref.data[0].get("proposal")
-                        if proposal_ref:
-                            label = f"{label} (Proposta {proposal_ref})"
-                        blocked_clients.append(str(label))
-                    else:
-                        safe_to_delete.append(client_id)
-
-                deleted_count = 0
-                for client_id in safe_to_delete:
-                    supabase.table("clients").delete().eq("id", client_id).execute()
-                    deleted_count += 1
-
-                # Atualiza os clientes existentes e insere as novas linhas do editor.
+                # Guardar as edições normais sem apagar ainda nenhum cliente.
                 for row in edited_rows:
                     current_id = row_id(row)
                     name = str(row.get("name") or "").strip()
                     if not name:
                         if current_id is not None:
                             raise ValueError(
-                                f"O cliente com ID {current_id} ficou sem nome. "
+                                f"O cliente ID {current_id} ficou sem nome. "
                                 "Preencha o nome ou remova a linha inteira."
                             )
                         continue
-
                     client_payload = {
                         "name": name,
                         "contact": row.get("contact"),
@@ -731,21 +814,44 @@ with tab_clients:
                         "phone": row.get("phone"),
                         "email": row.get("email")
                     }
-
                     if current_id is not None:
                         supabase.table("clients").update(client_payload).eq("id", current_id).execute()
                     else:
                         client_payload["number"] = get_next_client_number()
                         supabase.table("clients").insert(client_payload).execute()
 
-                st.session_state["clients_save_notice"] = {
-                    "deleted": deleted_count,
-                    "blocked": blocked_clients
-                }
+                if deleted_ids:
+                    pending_delete = []
+                    for cid in sorted(deleted_ids):
+                        quotes = (
+                            supabase.table("quotes").select("id")
+                            .eq("client_id", cid).execute().data or []
+                        )
+                        count_items = 0
+                        for quote in quotes:
+                            count_items += len(
+                                supabase.table("quote_items").select("id")
+                                .eq("quote_id", quote["id"]).execute().data or []
+                            )
+                        pending_delete.append({
+                            "id": cid,
+                            "name": str(original_by_id[cid].get("name") or f"ID {cid}"),
+                            "quote_count": len(quotes),
+                            "item_count": count_items
+                        })
+                    st.session_state["clients_pending_delete"] = pending_delete
+                    st.session_state["clients_save_notice"] = (
+                        "Alterações guardadas. A exclusão ainda NÃO foi executada: "
+                        "confirme-a no painel acima."
+                    )
+                else:
+                    st.session_state["clients_save_notice"] = (
+                        "Dados dos clientes atualizados com sucesso."
+                    )
                 st.session_state["clients_editor_version"] += 1
                 st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao atualizar clientes: {e}")
+            except Exception as exc:
+                st.error(f"Erro ao atualizar clientes: {exc}")
 
     with st.expander("➕ Cadastrar Novo Cliente"):
         with st.form("form_client"):
