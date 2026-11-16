@@ -1,6 +1,5 @@
 import os
 import io
-import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import streamlit as st
@@ -75,7 +74,6 @@ MARGEM_EQUIP = Decimal("0.15")
 MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
-USERS_FILE = "users_backup.json"
 
 # --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
 def check_password():
@@ -133,30 +131,52 @@ def get_products():
         return []
 
 def get_users():
-    try:
-        res = supabase.table("users").select("*").order("id").execute()
-        if res.data:
-            return res.data
-    except Exception:
-        pass
-    
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if data:
-                    return data
-        except Exception:
-            pass
-            
-    return [{"id": 1, "name": "Alisson Monteiro"}]
+    """Obtém os utilizadores exclusivamente do Supabase.
 
-def save_users_local(users_list):
+    Não usa ficheiros locais como fonte de verdade: em alojamentos Streamlit
+    o disco local pode ser temporário e perder os dados após reinícios/deploys.
+    """
     try:
-        with open(USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(users_list, f, ensure_ascii=False, indent=4)
+        res = supabase.table("users").select("id, name").order("id").execute()
+        return res.data or []
+    except Exception as exc:
+        raise RuntimeError(
+            "Não foi possível consultar a tabela 'public.users' no Supabase. "
+            "Confirme se a tabela existe e se a política RLS permite SELECT. "
+            f"Detalhe técnico: {exc}"
+        ) from exc
+
+
+def editor_rows(data):
+    """Normaliza o retorno do st.data_editor para uma lista de dicionários."""
+    if data is None:
+        return []
+    if hasattr(data, "to_dict"):
+        try:
+            return data.to_dict(orient="records")
+        except TypeError:
+            pass
+    if isinstance(data, dict):
+        return [data]
+    return list(data)
+
+
+def row_id(row):
+    """Retorna um ID válido, ignorando valores vazios/NaN do editor."""
+    value = row.get("id")
+    if value is None:
+        return None
+    try:
+        if value != value:  # NaN é o único valor que não é igual a si próprio.
+            return None
     except Exception:
         pass
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
 
 def get_next_proposal():
     try:
@@ -450,8 +470,18 @@ with tab_quote:
     clients_list = get_clients()
     client_options = {f"{c['number']:04d} - {c['name']}": c for c in clients_list}
     
-    users_list = get_users()
-    user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
+    try:
+        users_list = get_users()
+    except Exception as users_error:
+        users_list = []
+        st.warning(
+            "Não foi possível carregar os utilizadores do Supabase. "
+            "A lista será apresentada com o nome padrão até a tabela public.users "
+            f"ser configurada. Detalhe: {users_error}"
+        )
+    user_names = [u.get("name", "Alisson Monteiro") for u in users_list if u.get("name")]
+    if not user_names:
+        user_names = ["Alisson Monteiro"]
     
     with col1:
         proposal_num = st.number_input("Proposta Nº", value=get_next_proposal(), step=1)
@@ -605,43 +635,114 @@ with tab_quote:
 # TAB 2: CLIENTES
 with tab_clients:
     st.subheader("Gerenciar e Editar Clientes")
-    st.info("💡 **Dica:** Para excluir uma linha, selecione a caixa de marcação à esquerda na linha correspondente e clique em Salvar.")
+    st.info(
+        "💡 **Dica:** Pode remover clientes sem histórico. Clientes associados a "
+        "orçamentos são preservados para não quebrar o histórico comercial."
+    )
+
+    # Mensagem temporária apresentada depois do rerun.
+    clients_notice = st.session_state.pop("clients_save_notice", None)
+    if clients_notice:
+        deleted_count = clients_notice.get("deleted", 0)
+        blocked = clients_notice.get("blocked", [])
+        if deleted_count:
+            st.success(f"{deleted_count} cliente(s) sem orçamentos associados foram removidos.")
+        if blocked:
+            blocked_text = ", ".join(blocked)
+            st.warning(
+                "Os seguintes clientes foram mantidos porque possuem orçamentos "
+                f"associados: {blocked_text}. Para preservar os documentos e o histórico, "
+                "não podem ser apagados enquanto esses orçamentos existirem."
+            )
+        if not deleted_count and not blocked:
+            st.success("Dados dos clientes atualizados com sucesso na nuvem.")
+
     clients_df = get_clients()
     if clients_df is not None:
-        edited_clients = st.data_editor(clients_df, key="clients_editor", use_container_width=True, num_rows="dynamic")
+        if "clients_editor_version" not in st.session_state:
+            st.session_state["clients_editor_version"] = 0
+        clients_editor_key = f"clients_editor_{st.session_state['clients_editor_version']}"
+        edited_clients = st.data_editor(
+            clients_df,
+            key=clients_editor_key,
+            use_container_width=True,
+            num_rows="dynamic",
+            disabled=["id", "number"]
+        )
+
         if st.button("💾 Salvar Alterações de Clientes"):
             try:
-                original_ids = {item["id"] for item in clients_df if "id" in item}
-                edited_ids = {row["id"] for row in edited_clients if row.get("id") is not None}
+                original_rows = editor_rows(clients_df)
+                edited_rows = editor_rows(edited_clients)
+                original_by_id = {
+                    row_id(row): row for row in original_rows if row_id(row) is not None
+                }
+                original_ids = set(original_by_id)
+                edited_ids = {
+                    row_id(row) for row in edited_rows if row_id(row) is not None
+                }
                 deleted_ids = original_ids - edited_ids
-                for d_id in deleted_ids:
-                    supabase.table("clients").delete().eq("id", d_id).execute()
 
-                for row in edited_clients:
-                    if "id" in row and row["id"] is not None:
-                        supabase.table("clients").update({
-                            "name": row.get("name"),
-                            "contact": row.get("contact"),
-                            "nif": row.get("nif"),
-                            "address": row.get("address"),
-                            "postal": row.get("postal"),
-                            "phone": row.get("phone"),
-                            "email": row.get("email")
-                        }).eq("id", row["id"]).execute()
+                # Primeiro verifica as referências. Um cliente com orçamento associado
+                # fica na base de dados para preservar quotes.client_id.
+                safe_to_delete = []
+                blocked_clients = []
+                for client_id in deleted_ids:
+                    quote_ref = (
+                        supabase.table("quotes")
+                        .select("id, proposal")
+                        .eq("client_id", client_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    if quote_ref.data:
+                        old_client = original_by_id.get(client_id, {})
+                        label = old_client.get("name") or f"ID {client_id}"
+                        proposal_ref = quote_ref.data[0].get("proposal")
+                        if proposal_ref:
+                            label = f"{label} (Proposta {proposal_ref})"
+                        blocked_clients.append(str(label))
                     else:
-                        if row.get("name"):
-                            num = get_next_client_number()
-                            supabase.table("clients").insert({
-                                "number": num,
-                                "name": row.get("name"),
-                                "contact": row.get("contact"),
-                                "nif": row.get("nif"),
-                                "address": row.get("address"),
-                                "postal": row.get("postal"),
-                                "phone": row.get("phone"),
-                                "email": row.get("email")
-                            }).execute()
-                st.success("Dados dos clientes atualizados com sucesso na nuvem!")
+                        safe_to_delete.append(client_id)
+
+                deleted_count = 0
+                for client_id in safe_to_delete:
+                    supabase.table("clients").delete().eq("id", client_id).execute()
+                    deleted_count += 1
+
+                # Atualiza os clientes existentes e insere as novas linhas do editor.
+                for row in edited_rows:
+                    current_id = row_id(row)
+                    name = str(row.get("name") or "").strip()
+                    if not name:
+                        if current_id is not None:
+                            raise ValueError(
+                                f"O cliente com ID {current_id} ficou sem nome. "
+                                "Preencha o nome ou remova a linha inteira."
+                            )
+                        continue
+
+                    client_payload = {
+                        "name": name,
+                        "contact": row.get("contact"),
+                        "nif": row.get("nif"),
+                        "address": row.get("address"),
+                        "postal": row.get("postal"),
+                        "phone": row.get("phone"),
+                        "email": row.get("email")
+                    }
+
+                    if current_id is not None:
+                        supabase.table("clients").update(client_payload).eq("id", current_id).execute()
+                    else:
+                        client_payload["number"] = get_next_client_number()
+                        supabase.table("clients").insert(client_payload).execute()
+
+                st.session_state["clients_save_notice"] = {
+                    "deleted": deleted_count,
+                    "blocked": blocked_clients
+                }
+                st.session_state["clients_editor_version"] += 1
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao atualizar clientes: {e}")
@@ -743,63 +844,134 @@ with tab_products:
 # TAB 4: UTILIZADORES
 with tab_users:
     st.subheader("Gerenciar e Editar Utilizadores (Elaborado Por)")
-    st.info("💡 **Dica:** Os utilizadores ficam guardados na nuvem (Supabase).")
-    
-    users_data = get_users()
-    if users_data is not None:
-        edited_users = st.data_editor(users_data, key="users_editor", use_container_width=True, num_rows="dynamic")
+    st.info(
+        "Os utilizadores são lidos e gravados diretamente no Supabase. "
+        "Não é usado armazenamento local temporário."
+    )
+
+    users_notice = st.session_state.pop("users_save_notice", None)
+    if users_notice:
+        st.success(users_notice)
+
+    users_load_error = None
+    try:
+        users_data = get_users()
+    except Exception as e:
+        users_data = []
+        users_load_error = e
+        st.error(
+            "Não foi possível carregar os utilizadores do Supabase. "
+            "Confirme a tabela public.users e as permissões RLS. "
+            f"Detalhe: {e}"
+        )
+
+    if users_data:
+        if "users_editor_version" not in st.session_state:
+            st.session_state["users_editor_version"] = 0
+        users_editor_key = f"users_editor_{st.session_state['users_editor_version']}"
+        edited_users = st.data_editor(
+            users_data,
+            key=users_editor_key,
+            use_container_width=True,
+            num_rows="dynamic",
+            disabled=["id"]
+        )
+
         if st.button("💾 Salvar Alterações de Utilizadores"):
             try:
-                original_ids = {item["id"] for item in users_data if "id" in item}
-                edited_ids = {row["id"] for row in edited_users if row.get("id") is not None}
+                original_rows = editor_rows(users_data)
+                edited_rows = editor_rows(edited_users)
+                original_ids = {
+                    row_id(row) for row in original_rows if row_id(row) is not None
+                }
+                edited_ids = {
+                    row_id(row) for row in edited_rows if row_id(row) is not None
+                }
                 deleted_ids = original_ids - edited_ids
-                for d_id in deleted_ids:
-                    try:
-                        supabase.table("users").delete().eq("id", d_id).execute()
-                    except Exception:
-                        pass
 
-                for row in edited_users:
-                    if "id" in row and row["id"] is not None:
-                        try:
-                            supabase.table("users").update({"name": row.get("name")}).eq("id", row["id"]).execute()
-                        except Exception:
-                            pass
+                # Valida os nomes antes de efetuar alterações na nuvem.
+                clean_rows = []
+                seen_names = set()
+                for row in edited_rows:
+                    name = str(row.get("name") or "").strip()
+                    current_id = row_id(row)
+                    if not name:
+                        if current_id is not None:
+                            raise ValueError(
+                                f"O utilizador com ID {current_id} ficou sem nome. "
+                                "Preencha o nome ou remova a linha inteira."
+                            )
+                        continue
+                    normalized = name.casefold()
+                    if normalized in seen_names:
+                        raise ValueError(f"O utilizador '{name}' está repetido na lista.")
+                    seen_names.add(normalized)
+                    clean_rows.append((current_id, name))
+
+                for user_id in deleted_ids:
+                    supabase.table("users").delete().eq("id", user_id).execute()
+
+                for user_id, name in clean_rows:
+                    if user_id is not None:
+                        supabase.table("users").update({"name": name}).eq("id", user_id).execute()
                     else:
-                        if row.get("name"):
-                            try:
-                                supabase.table("users").insert({"name": row.get("name")}).execute()
-                            except Exception:
-                                pass
-                
-                save_users_local(edited_users)
-                st.success("Lista de utilizadores atualizada com sucesso!")
+                        supabase.table("users").insert({"name": name}).execute()
+
+                st.session_state["users_save_notice"] = "Lista de utilizadores atualizada diretamente no Supabase."
+                st.session_state["users_editor_version"] += 1
                 st.rerun()
             except Exception as e:
-                st.error(f"Erro ao atualizar utilizadores na nuvem. Detalhe: {e}")
+                st.error(
+                    "Não foi possível guardar todas as alterações dos utilizadores no Supabase. "
+                    "Nenhuma gravação local temporária foi apresentada como permanente. "
+                    f"Detalhe: {e}"
+                )
+    elif not users_load_error:
+        st.info("Ainda não existem utilizadores registados. Cadastre o primeiro abaixo.")
 
-    with st.expander("➕ Cadastrar Novo Utilizador"):
+    with st.expander("➕ Cadastrar Novo Utilizador", expanded=not bool(users_data)):
         with st.form("form_user"):
             u_name = st.text_input("Nome do Utilizador *")
             if st.form_submit_button("Guardar Utilizador"):
-                if not u_name:
+                clean_name = u_name.strip()
+                if not clean_name:
                     st.error("O nome é obrigatório!")
                 else:
                     try:
-                        supabase.table("users").insert({"name": u_name}).execute()
-                        st.success("Utilizador registado com sucesso na nuvem!")
-                        st.rerun()
-                    except Exception as err:
                         current_users = get_users()
-                        new_id = max([u.get("id", 0) for u in current_users], default=0) + 1
-                        current_users.append({"id": new_id, "name": u_name})
-                        save_users_local(current_users)
-                        st.warning(f"⚠️ Erro ao gravar na nuvem: {err}. Guardado temporariamente em segurança.")
-                        st.rerun()
+                        duplicate = any(
+                            str(user.get("name") or "").strip().casefold() == clean_name.casefold()
+                            for user in current_users
+                        )
+                        if duplicate:
+                            st.warning(f"O utilizador '{clean_name}' já está registado.")
+                        else:
+                            supabase.table("users").insert({"name": clean_name}).execute()
+                            st.session_state["users_save_notice"] = (
+                                f"Utilizador '{clean_name}' gravado com sucesso no Supabase."
+                            )
+                            st.rerun()
+                    except Exception as err:
+                        st.error(
+                            "O utilizador NÃO foi gravado de forma persistente. "
+                            "Confirme se a tabela public.users existe e se as políticas RLS "
+                            "permitem SELECT e INSERT. Execute também o ficheiro SQL de "
+                            f"configuração fornecido. Detalhe: {err}"
+                        )
 
 # TAB 5: HISTÓRICO
 with tab_history:
     st.subheader("Orçamentos Salvos no Supabase e Requisições de Material")
+    try:
+        history_users = get_users()
+    except Exception as users_error:
+        history_users = []
+        st.warning(
+            "Não foi possível carregar a lista de utilizadores. A Requisição poderá "
+            "ser gerada com o nome padrão até a tabela public.users ser configurada. "
+            f"Detalhe: {users_error}"
+        )
+
     try:
         quotes_res = supabase.table("quotes").select("id, proposal, created_at, discount, installation_cost, notes, total, clients(id, name, address, postal, nif, phone, email)").order("created_at", desc=True).execute()
         if quotes_res.data:
@@ -829,9 +1001,14 @@ with tab_history:
                             if include_item:
                                 selected_requisition_items.append(item)
                     
-                    users_list = get_users()
-                    user_names = [u.get("name", "Alisson Monteiro") for u in users_list]
-                    req_user = st.selectbox("Elaborado Por (para a Requisição)", options=user_names, key=f"req_user_{q['id']}")
+                    user_names = [u.get("name", "Alisson Monteiro") for u in history_users if u.get("name")]
+                    if not user_names:
+                        user_names = ["Alisson Monteiro"]
+                    req_user = st.selectbox(
+                        "Elaborado Por (para a Requisição)",
+                        options=user_names,
+                        key=f"req_user_{q['id']}"
+                    )
 
                     if st.button(f"📄 Gerar Requisição de Material (Proposta {prop_num})", key=f"req_btn_{q['id']}"):
                         if not selected_requisition_items:
