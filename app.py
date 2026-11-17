@@ -16,63 +16,127 @@ st.set_page_config(
     page_icon="icon_png.png" if os.path.exists("icon_png.png") else "☀️"
 )
 
-# SOLARX ENERGY — Identidade premium (CSS de apresentação; sem alterar lógica)
+# SOLARX ENERGY — Revisão premium do design aprovado; não modifica Supabase ou PDFs.
 st.markdown("""
 <style>
-:root{--energy-a:#ff852e;--energy-b:#ff276f;--sx-bg:#090d18;--sx-panel:#151a2b;--sx-edge:rgba(218,226,255,.12);}
-html,body,[data-testid="stAppViewContainer"],.stApp{background:#090d18!important;color:#f7f7fb!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;}
-[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse 70% 50% at 90% -12%,rgba(255,69,110,.12),transparent 75%),radial-gradient(ellipse 48% 50% at -10% 100%,rgba(255,120,34,.07),transparent 70%),#090d18!important;}
-[data-testid="stHeader"]{background:transparent!important;}
-.block-container{max-width:1460px;padding-top:1.6rem;padding-bottom:3rem;}
-[data-testid="stSidebar"]{background:linear-gradient(160deg,rgba(24,28,46,.98),rgba(11,14,26,.99))!important;border-right:1px solid var(--sx-edge)!important;}
-[data-testid="stSidebar"] [data-testid="stImage"]{padding:.8rem 0 1rem;}
-[data-testid="stSidebar"] [role="radiogroup"]{gap:.45rem;}
-[data-testid="stSidebar"] [role="radiogroup"] label{border:1px solid transparent;border-radius:12px;padding:9px 12px;background:transparent;transition:background .15s ease;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:rgba(255,255,255,.06);}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:linear-gradient(100deg,#ff852e,#ff276f)!important;box-shadow:0 5px 18px rgba(255,48,107,.16);}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:white!important;font-weight:650;}
-[data-testid="stSidebar"] [role="radiogroup"] [data-testid="stMarkdownContainer"] p{font-size:.93rem;}
-.stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"],div.stDownloadButton>button[kind="primary"]{background:linear-gradient(95deg,#ff862e,#ff276f)!important;border:0!important;color:#fff!important;font-weight:680!important;box-shadow:0 7px 22px rgba(255,42,102,.17)!important;}
-.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{border-radius:12px!important;min-height:42px;transition:transform .12s ease,box-shadow .12s ease;background:rgba(255,255,255,.045);border:1px solid var(--sx-edge);color:#f8f8fd;}
-.stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover{transform:translateY(-1px);border-color:rgba(255,117,82,.43)!important;color:white!important;}
-[data-testid="stVerticalBlockBorderWrapper"]>div{background:rgba(26,31,49,.62)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--sx-edge)!important;border-radius:18px!important;}
-[data-testid="stExpander"]{border:1px solid var(--sx-edge)!important;background:rgba(21,26,43,.72)!important;border-radius:15px!important;overflow:hidden;}
-[data-testid="stDataFrame"],[data-testid="stDataEditor"]{border:1px solid var(--sx-edge)!important;border-radius:14px!important;overflow:hidden;}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,[data-testid="stTextArea"] textarea,[data-baseweb="select"]>div{background:rgba(20,25,42,.87)!important;color:#f8f9ff!important;border-color:rgba(220,229,255,.13)!important;border-radius:11px!important;}
-[data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus{border-color:#ff5680!important;}
-[data-testid="stMetric"]{background:rgba(22,27,45,.76);padding:16px;border:1px solid var(--sx-edge);border-radius:16px;}
-[data-testid="stMetricValue"]{color:white!important;}
+/* SOLARX ENERGY PREMIUM • revisão visual 02 • CSS isolado da lógica */
+:root{--energy-a:#ff8b31;--energy-b:#ff246a;--sx-bg:#090d18;--sx-panel:#151a2b;--sx-edge:rgba(215,227,255,.12);--sx-muted:#9ea7bb;}
+html,body,[data-testid="stAppViewContainer"],.stApp{color:#f7f8fc!important;font-family:Inter,"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;}
+[data-testid="stAppViewContainer"]{background:radial-gradient(ellipse 65% 52% at 100% -18%,rgba(255,80,120,.11),transparent 73%),radial-gradient(ellipse 55% 60% at -13% 105%,rgba(255,130,39,.06),transparent 72%),#090d18!important;}
+[data-testid="stHeader"]{background:rgba(9,13,24,.82)!important;backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);border-bottom:1px solid rgba(255,255,255,.03);}
+.block-container{max-width:1570px!important;padding-top:4.3rem!important;padding-bottom:5rem!important;padding-left:2.2rem!important;padding-right:2.2rem!important;}
+/* Barra Energy abaixo dos controles hospedados pelo Streamlit */
+.sx-topline{height:9px;border-radius:100px;margin:3px 0 2.2rem;background:linear-gradient(92deg,#ff286e 0%,#ff5c48 55%,#ffa51e 100%);box-shadow:0 5px 24px rgba(255,53,110,.20),0 1px 0 rgba(255,255,255,.18) inset;}
+/* Navegação lateral refinada, sem duplicar os controles nativos do radio */
+[data-testid="stSidebar"]{background:linear-gradient(163deg,#171b2e 0%,#121624 56%,#0c101d 100%)!important;border-right:1px solid rgba(223,231,255,.11)!important;}
+[data-testid="stSidebar"]>div:first-child{padding:1.6rem 1.05rem 1rem!important;}
+[data-testid="stSidebar"] [data-testid="stImage"]{max-width:100%;padding:1.05rem .25rem 1.1rem;}
+[data-testid="stSidebar"] [role="radiogroup"]{gap:.40rem!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label{position:relative;display:flex!important;align-items:center!important;gap:.8rem!important;min-height:47px;padding:10px 13px!important;background:transparent!important;border:1px solid transparent!important;border-radius:13px!important;cursor:pointer;transition:background .16s,border-color .16s,transform .16s;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:rgba(255,255,255,.055)!important;transform:translateX(2px);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked),[data-testid="stSidebar"] [role="radiogroup"] label:has([aria-checked="true"]){background:linear-gradient(102deg,#ff9230,#ff246a)!important;border-color:rgba(255,208,192,.28)!important;box-shadow:0 7px 21px rgba(255,48,108,.16);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#fff!important;font-weight:690!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label p{color:#e2e5f1!important;font-size:.88rem!important;font-weight:550!important;line-height:1.3!important;margin:0!important;}
+/* O círculo nativo permanece acessível mas invisível; o ícone passa a indicar a página */
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label::before{content:"";flex:0 0 19px;width:19px;height:19px;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:.99;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(1)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(1) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJtMyAxMCA5LTcgOSA3djEwYTEgMSAwIDAgMS0xIDFoLTV2LTdIOXY3SDRhMSAxIDAgMCAxLTEtMXoiLz48L3N2Zz4=")!important;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(2)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(2) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNyAyaDlsNSA1djE0YTEgMSAwIDAgMS0xIDFIN2ExIDEgMCAwIDEtMS0xVjNhMSAxIDAgMCAxIDEtMVoiLz48cGF0aCBkPSJNMTYgMnY2aDVNOSAxMmg4bS04IDRoOCIvPjwvc3ZnPg==")!important;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(3)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(3) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTYgMjF2LTJhNCA0IDAgMCAwLTQtNEg2YTQgNCAwIDAgMC00IDR2MiIvPjxjaXJjbGUgY3g9IjkiIGN5PSI3IiByPSI0Ii8+PHBhdGggZD0iTTIyIDIxdi0yYTQgNCAwIDAgMC0zLTMuODdNMTYgMy4xM2E0IDQgMCAwIDEgMCA3Ljc1Ii8+PC9zdmc+")!important;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(4)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(4) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJtMTIgMyA5IDUtOSA1LTktNSA5LTVaIi8+PHBhdGggZD0iTTMgOHY5bDkgNSA5LTVWOE0xMiAxM3Y5Ii8+PC9zdmc+")!important;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(5)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(5) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjciIHI9IjQiLz48cGF0aCBkPSJNNSAyMXYtM2E3IDcgMCAwIDEgMTQgMHYzIi8+PC9zdmc+")!important;}
+[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type(6)::before,
+[data-testid="stSidebar"] [role="radiogroup"] > div:nth-of-type(6) label::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43NSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjAgMTYuNkE0LjcgNC43IDAgMCAwIDE3IDhhNi44IDYuOCAwIDAgMC0xMyAyQTQuNSA0LjUgMCAwIDAgNSAxOWgxM2EzLjUgMy41IDAgMCAwIDItMi40WiIvPjwvc3ZnPg==")!important;}
+.sx-sidebar-footer{padding:1.2rem .45rem 0;border-top:1px solid rgba(255,255,255,.07);margin-top:1.2rem;}
+.sx-sidebar-mini{color:#8e98ad;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;font-weight:650;}
+.sx-sidebar-health{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:.77rem;color:#9ba7bb;}
+.sx-sidebar-health i{display:inline-block;border-radius:50%;width:7px;height:7px;background:#38d7a0;box-shadow:0 0 9px rgba(56,215,160,.5);}
+/* Controles e formulários */
+.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{border-radius:12px!important;min-height:43px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease!important;background:rgba(255,255,255,.04)!important;border:1px solid rgba(217,227,255,.15)!important;color:#f8f8fd!important;}
+.stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover{transform:translateY(-1px);border-color:rgba(255,128,89,.48)!important;box-shadow:0 6px 20px rgba(0,0,0,.14)!important;}
+.stButton>button[kind="primary"],.stFormSubmitButton>button,.stDownloadButton>button[kind="primary"]{background:linear-gradient(105deg,#ff9132 0%,#ff5849 48%,#ff276f 100%)!important;border-color:rgba(255,215,211,.22)!important;color:#fff!important;font-weight:680!important;box-shadow:0 8px 22px rgba(255,45,104,.20)!important;}
+.stButton>button[kind="primary"]:hover,.stFormSubmitButton>button:hover,.stDownloadButton>button[kind="primary"]:hover{box-shadow:0 10px 28px rgba(255,45,104,.32)!important;}
+.stButton>button[kind="primary"] p,.stFormSubmitButton>button p,.stDownloadButton>button[kind="primary"] p{color:white!important;font-weight:690!important;}
+.stButton>button:disabled,.stFormSubmitButton>button:disabled{opacity:.44!important;transform:none!important;}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,[data-testid="stTextArea"] textarea,[data-baseweb="select"]>div{background:rgba(20,25,42,.90)!important;color:#f6f8ff!important;border-color:rgba(219,230,255,.15)!important;border-radius:11px!important;}
+[data-testid="stTextInput"] input:focus,[data-testid="stNumberInput"] input:focus,[data-testid="stTextArea"] textarea:focus{border-color:#ff697f!important;box-shadow:0 0 0 1px rgba(255,83,110,.2)!important;}
+[data-testid="stWidgetLabel"] p,[data-testid="stMarkdownContainer"] label{color:#cbd1df!important;font-size:.87rem!important;}
+[data-testid="stVerticalBlockBorderWrapper"]>div{background:linear-gradient(148deg,rgba(30,36,58,.72),rgba(18,23,38,.78))!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--sx-edge)!important;border-radius:18px!important;}
+[data-testid="stExpander"]{border:1px solid var(--sx-edge)!important;background:rgba(23,28,45,.72)!important;border-radius:16px!important;overflow:hidden;}
+[data-testid="stExpander"] summary{min-height:55px;}
+[data-testid="stDataFrame"],[data-testid="stDataEditor"]{border:1px solid var(--sx-edge)!important;border-radius:15px!important;overflow:hidden;}
+[data-testid="stDataEditor"] [role="columnheader"]{background:rgba(255,255,255,.045)!important;color:#e7eaf3!important;}
+[data-testid="stMetric"]{background:linear-gradient(150deg,rgba(32,38,61,.82),rgba(19,24,40,.82));padding:18px;border:1px solid rgba(221,228,255,.1);border-radius:17px;min-height:114px;}
+[data-testid="stMetricValue"]{color:#fff!important;letter-spacing:-.035em;}
 [data-testid="stAlert"]{border-radius:13px!important;}
-[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{line-height:1.55;}
-h1,h2,h3{letter-spacing:-.027em!important;color:white!important;}
-h1{font-size:2rem!important;}h2{font-size:1.42rem!important;}h3{font-size:1.14rem!important;}
-hr{border-color:rgba(235,240,255,.09)!important;}
-.sx-eyebrow{font-size:.71rem;text-transform:uppercase;letter-spacing:.16em;font-weight:700;color:#b4b8c8;margin-bottom:.28rem;}
-.sx-heading{font-size:1.9rem;font-weight:750;letter-spacing:-.03em;color:#fff;margin:0 0 .25rem;}
-.sx-subtitle{color:#a9afc2;font-size:.91rem;margin-bottom:1.6rem;}
-.sx-topline{background:linear-gradient(90deg,#ff276f 0%,#ff7047 62%,#ffa820 100%);height:3px;border-radius:999px;margin-bottom:1.45rem;}
-.sx-kpi{position:relative;min-height:149px;background:linear-gradient(145deg,rgba(31,38,60,.84),rgba(18,23,38,.87));border:1px solid rgba(215,226,255,.11);border-radius:18px;padding:18px 18px 14px;backdrop-filter:blur(16px);overflow:hidden;}
-.sx-kpi::after{content:"";position:absolute;width:115px;height:115px;background:radial-gradient(circle,rgba(255,116,66,.055),transparent 70%);right:-25px;top:-30px;pointer-events:none;}
-.sx-kpi-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:20px;}
-.sx-kpi-name{color:#c9cddb;font-size:.82rem;font-weight:600;}
-.sx-kpi-icon{width:22px;height:22px;stroke:#e7e9f4;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
-.sx-kpi-value{font-size:1.55rem;color:#fff;letter-spacing:-.03em;font-weight:740;white-space:nowrap;}
-.sx-kpi-sub{font-size:.72rem;color:#8b94a8;margin-top:8px;}
-.sx-tag{padding:4px 9px;border-radius:100px;font-size:.68rem;font-weight:650;background:rgba(61,204,138,.10);color:#4ddfa6;}
-.sx-tag.warn{background:rgba(255,172,40,.12);color:#ffbd62;}.sx-tag.bad{background:rgba(249,66,100,.14);color:#ff758a;}
-.sx-glow{color:#fff;background:linear-gradient(90deg,#ffac36,#ff477f);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.sx-section{color:#f4f5fa;font-weight:680;font-size:1.05rem;margin:1.2rem 0 .9rem;letter-spacing:-.01em;}
+[data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{line-height:1.52;}
+h1,h2,h3{letter-spacing:-.027em!important;color:#fafaff!important;}
+h1{font-size:2rem!important;}h2{font-size:1.4rem!important;}h3{font-size:1.12rem!important;}
+hr{border-color:rgba(231,239,255,.08)!important;}
+.sx-heading{font-size:1.9rem;font-weight:750;letter-spacing:-.033em;color:#fff;margin:0 0 .35rem;}
+.sx-subtitle{color:#a5afc3;font-size:.91rem;margin-bottom:1.7rem;}
+.sx-section{color:#f3f5fb;font-weight:710;font-size:1.08rem;margin:1.45rem 0 1.05rem;letter-spacing:-.01em;}
 .sx-mini-note{font-size:.78rem;color:#a8b0c1;}
-@media(max-width:768px){.block-container{padding:1rem .75rem 3rem;}.sx-heading{font-size:1.5rem;}.sx-kpi{min-height:128px;padding:13px 12px;}.sx-kpi-value{font-size:1.18rem;}.sx-kpi-name{font-size:.73rem;}.sx-kpi-head{margin-bottom:12px;}[data-testid="stSidebar"]{width:250px!important;}}
-[data-testid="stSidebar"] [role="radiogroup"] label{display:flex!important;align-items:center!important;gap:.55rem!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label::before{content:"";flex:0 0 19px;width:19px;height:19px;background-size:contain;background-position:center;background-repeat:no-repeat;opacity:.97;}
-
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(1)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Im0zIDEwIDktNyA5IDd2MTBhMSAxIDAgMCAxLTEgMWgtNXYtN0g5djdINGExIDEgMCAwIDEtMS0xeiIvPjwvc3ZnPg==")}
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(2)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik03IDJoOWw1IDV2MTRIN3oiLz48cGF0aCBkPSJNMTYgMnY2aDVNMTAgMTJoOE0xMCAxNmg4Ii8+PC9zdmc+")}
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(3)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNiAyMXYtMmE0IDQgMCAwIDAtNC00SDZhNCA0IDAgMCAwLTQgNHYyIi8+PGNpcmNsZSBjeD0iOSIgY3k9IjciIHI9IjQiLz48cGF0aCBkPSJNMjIgMjF2LTJhNCA0IDAgMCAwLTMtMy44N00xNiAzLjEzYTQgNCAwIDAgMSAwIDcuNzUiLz48L3N2Zz4=")}
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(4)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjMiIHk9IjciIHdpZHRoPSIxOCIgaGVpZ2h0PSIxNCIgcng9IjIiLz48cGF0aCBkPSJtMyA3IDktNSA5IDVNMTIgMTJ2OSIvPjwvc3ZnPg==")}
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(5)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iNyIgcj0iNCIvPjxwYXRoIGQ9Ik01IDIxdi0zYTcgNyAwIDAgMSAxNCAwdjMiLz48L3N2Zz4=")}
-[data-testid="stSidebar"] [role="radiogroup"] label:nth-of-type(6)::before{background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMS43IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMCAxNi42QTQuNyA0LjcgMCAwIDAgMTcgOGE2LjggNi44IDAgMCAwLTEzIDJBNC41IDQuNSAwIDAgMCA1IDE5aDEzYTMuNSAzLjUgMCAwIDAgMi0yLjR6Ii8+PC9zdmc+")}
+.sx-glow{color:#ffbe73;}
+.sx-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:100px;font-size:.70rem;font-weight:700;background:rgba(61,204,138,.14);color:#4de2a7;}
+.sx-tag.warn{background:rgba(255,171,54,.13);color:#ffb74b;}.sx-tag.bad{background:rgba(249,66,100,.15);color:#ff7b94;}
+/* KPI: respiro horizontal e vertical, ícones line brancos com brilho subtil */
+[data-testid="stHorizontalBlock"]:has(.sx-kpi){column-gap:1.55rem!important;margin-bottom:1.35rem!important;align-items:stretch;}
+[data-testid="stHorizontalBlock"]:has(.sx-kpi)>[data-testid="stColumn"]{min-width:0!important;}
+.sx-kpi{position:relative;min-height:171px;background:linear-gradient(150deg,rgba(30,37,60,.91),rgba(17,22,39,.94));border:1px solid rgba(221,233,255,.12);border-radius:20px;padding:20px 21px 17px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;transition:transform .17s,border-color .17s;}
+.sx-kpi:hover{transform:translateY(-3px);border-color:rgba(255,158,128,.25);}
+.sx-kpi::before{content:"";height:2px;position:absolute;left:20px;right:20px;bottom:0;background:linear-gradient(90deg,transparent,var(--kpi-accent),transparent);opacity:.58;}
+.sx-kpi::after{content:"";position:absolute;width:152px;height:145px;background:radial-gradient(circle at center,var(--kpi-halo),transparent 71%);right:-50px;top:-56px;pointer-events:none;}
+.sx-kpi-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:24px;}
+.sx-kpi-name{color:#c8cfdf;font-size:.82rem;font-weight:620;line-height:1.35;}
+.sx-icon-pill{display:inline-flex;justify-content:center;align-items:center;flex-shrink:0;width:40px;height:40px;border-radius:13px;background:var(--kpi-halo);border:1px solid rgba(255,255,255,.09);}
+.sx-kpi-icon{width:21px;height:21px;stroke:#fff;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.sx-kpi-value{font-size:1.66rem;color:#fff;letter-spacing:-.036em;font-weight:750;line-height:1.12;white-space:normal;overflow-wrap:anywhere;}
+.sx-kpi-sub{font-size:.76rem;color:#9ca7bb;margin-top:11px;line-height:1.4;}
+/* Gráficos SVG baseados nos dados efetivos da aplicação */
+[data-testid="stHorizontalBlock"]:has(.sx-chart-card){column-gap:1.45rem!important;align-items:stretch;}
+.sx-chart-card{position:relative;min-height:360px;padding:21px 22px 15px;border-radius:20px;overflow:hidden;border:1px solid rgba(216,229,255,.13);background:linear-gradient(147deg,rgba(31,38,61,.87),rgba(16,21,36,.96));box-shadow:0 12px 32px rgba(0,0,0,.12);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+.sx-chart-card:before{content:"";position:absolute;top:0;right:-60px;width:260px;height:160px;pointer-events:none;background:radial-gradient(circle,rgba(255,120,68,.10),transparent 72%);}
+.sx-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:8px;position:relative;}
+.sx-chart-heading{font-size:.95rem;color:#fff;font-weight:690;}
+.sx-chart-caption{font-size:.75rem;color:#9da8bd;margin-top:5px;}
+.sx-chart-accent{height:5px;width:38px;background:linear-gradient(90deg,#ff9333,#ff2874);border-radius:99px;margin-top:7px;box-shadow:0 0 16px rgba(255,68,99,.27);}
+.sx-chart-body svg{width:100%;height:auto;display:block;max-height:285px;overflow:visible;}
+.sx-chart-grid{stroke:rgba(208,220,251,.095);stroke-width:1;}
+.sx-chart-axis{fill:#8490a7;font-size:13px;font-family:Inter,-apple-system,sans-serif;}
+.sx-chart-area{opacity:.88;}
+.sx-chart-note{color:#8e9bb0;font-size:.72rem;line-height:1.45;margin-top:5px;}
+.sx-chart-legend{display:flex;align-items:center;gap:7px;color:#d7dce9;font-size:.74rem;white-space:nowrap;}
+.sx-legend-dot{display:inline-block;width:8px;height:8px;flex-shrink:0;border-radius:50%;background:var(--legend);box-shadow:0 0 9px var(--legend);}
+.sx-donut-flex{display:flex;align-items:center;justify-content:center;gap:18px;min-height:263px;}
+.sx-donut-flex svg{width:54%;max-width:235px;flex:0 0 52%;}
+.sx-donut-legend{display:flex;flex-direction:column;gap:12px;flex:1;min-width:0;}
+.sx-donut-item{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#dce2ee;font-size:.80rem;}
+.sx-donut-label{display:flex;align-items:center;gap:8px;min-width:0;}
+.sx-donut-count{font-size:.9rem;color:#f5f7ff;font-weight:750;}
+.sx-donut-center{fill:#fff;font-size:37px;font-weight:770;text-anchor:middle;letter-spacing:-1px;}
+.sx-donut-center-caption{fill:#9aa8c0;font-size:12px;text-anchor:middle;}
+/* Cards de histórico em grelha (resumo informativo acima dos detalhes) */
+.sx-history-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:14px 0 22px;}
+.sx-history-card{background:linear-gradient(145deg,rgba(30,37,60,.88),rgba(18,23,40,.94));border:1px solid rgba(220,231,255,.12);padding:17px 18px;border-radius:17px;min-width:0;}
+.sx-history-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.sx-history-id{font-size:.92rem;font-weight:720;color:#fff;}
+.sx-history-client{font-size:.77rem;color:#a6b0c4;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sx-history-value{font-size:1.06rem;font-weight:760;color:#fff;white-space:nowrap;}
+.sx-history-footer{display:flex;align-items:center;justify-content:space-between;margin-top:17px;gap:10px;}
+.sx-history-date{font-size:.72rem;color:#8d9aaf;}
+.sx-soft-card{padding:15px 18px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.027);}
+/* Login premium */
+.sx-auth-label{font-size:1.30rem;font-weight:700;text-align:center;color:#fff;margin:8px 0 3px;letter-spacing:-.02em;}
+.sx-auth-desc{text-align:center;color:#a0abc1;font-size:.87rem;margin:0 0 24px;}
+.sx-auth-footer{text-align:center;color:#8793a8;font-size:.74rem;margin-top:20px;}
+@media(max-width:1000px){.block-container{padding-left:1.35rem!important;padding-right:1.35rem!important;}[data-testid="stHorizontalBlock"]:has(.sx-kpi){column-gap:1rem!important;} .sx-kpi{padding:15px 14px;min-height:150px}.sx-kpi-value{font-size:1.36rem}.sx-kpi-head{margin-bottom:16px}}
+@media(max-width:768px){.block-container{padding:3.8rem .8rem 4.5rem!important;}.sx-topline{height:8px;margin:4px 0 1.55rem;}.sx-heading{font-size:1.55rem;}.sx-subtitle{font-size:.82rem;margin-bottom:1.25rem;}.sx-chart-card{padding:16px 13px;min-height:0;}.sx-chart-body svg{min-height:185px;}.sx-history-grid{grid-template-columns:1fr;gap:10px;}.sx-kpi{min-height:128px;padding:15px 14px;}.sx-kpi-name{font-size:.73rem}.sx-kpi-value{font-size:1.22rem}.sx-kpi-head{margin-bottom:12px}.sx-icon-pill{width:34px;height:34px}.sx-donut-flex{gap:6px}.sx-donut-flex svg{width:48%;flex-basis:48%;}.sx-donut-item{font-size:.72rem;}[data-testid="stSidebar"]{max-width:270px!important;}.sx-chart-body{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,160,97,.36) transparent;}.sx-chart-body svg{width:600px!important;min-width:600px!important;max-height:none!important;min-height:0!important;}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,20 +171,28 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state or not st.session_state["password_correct"]:
-        st.subheader("🔒 Acesso Restrito - SolarX")
-        with st.form("login_form"):
-            col_pwd, col_btn = st.columns([3, 1])
-            with col_pwd:
-                st.text_input("Introduza a senha de acesso:", type="password", key="password_input", label_visibility="collapsed", placeholder="Introduza a senha...")
-            with col_btn:
-                submitted = st.form_submit_button("Enter")
-            
-            if submitted:
-                password_entered()
-
-        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-            st.error("😕 Senha incorreta. Tente novamente.")
+    if not st.session_state.get("password_correct", False):
+        st.markdown('<div class="sx-topline"></div>', unsafe_allow_html=True)
+        _, auth_center, _ = st.columns([1.05, 1.20, 1.05], gap="large")
+        with auth_center:
+            auth_logo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_solarx_mono.png")
+            if os.path.isfile(auth_logo):
+                st.image(auth_logo, width=255)
+            else:
+                st.markdown("### SOLAR X")
+            with st.container(border=True):
+                st.markdown('<div class="sx-auth-label">Bem-vindo à SolarX</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sx-auth-desc">Gestão comercial e financeira · Acesso reservado</div>', unsafe_allow_html=True)
+                with st.form("login_form"):
+                    st.text_input("Palavra-passe", type="password", key="password_input", placeholder="Introduza a palavra-passe")
+                    submitted = st.form_submit_button("Entrar na SolarX", use_container_width=True, type="primary")
+                if submitted:
+                    password_entered()
+                    if st.session_state.get("password_correct"):
+                        st.rerun()
+                if st.session_state.get("password_correct") is False:
+                    st.error("Palavra-passe incorreta. Tente novamente.")
+            st.markdown('<div class="sx-auth-footer">SOLARX · Energia inteligente. Futuro sem limites.</div>', unsafe_allow_html=True)
         return False
     return True
 
@@ -622,9 +694,134 @@ ICON_SVG = {
 
 
 def kpi_card(label, value, detail, icon="sales", tone=""):
+    palettes = {
+        "approved": ("#32dca1", "rgba(50,220,161,.14)"),
+        "clients": ("#62aafc", "rgba(98,170,252,.14)"),
+        "solar": ("#ffae48", "rgba(255,174,72,.16)"),
+        "sales": ("#ff8752", "rgba(255,135,82,.15)"),
+        "tax": ("#bb91f7", "rgba(187,145,247,.15)"),
+        "profit": ("#44dbaa", "rgba(68,219,170,.15)"),
+    }
+    accent, halo = palettes.get(icon, palettes["sales"])
     svg = f'<svg viewBox="0 0 24 24" class="sx-kpi-icon" aria-hidden="true">{ICON_SVG.get(icon, ICON_SVG["sales"])}</svg>'
-    tag = f'<span class="sx-tag {tone}">{html_escape(detail)}</span>' if detail.startswith(("+", "−", "-")) else f'<span class="sx-kpi-sub">{html_escape(detail)}</span>'
-    st.markdown(f"""<div class="sx-kpi"><div class="sx-kpi-head"><span class="sx-kpi-name">{html_escape(label)}</span>{svg}</div><div class="sx-kpi-value">{html_escape(str(value))}</div>{tag}</div>""",unsafe_allow_html=True)
+    tag = (f'<span class="sx-tag {tone}">{html_escape(detail)}</span>'
+           if detail.startswith(("+", "−", "-")) else f'<div class="sx-kpi-sub">{html_escape(detail)}</div>')
+    markup = (f'<div class="sx-kpi" style="--kpi-accent:{accent};--kpi-halo:{halo}">'
+              f'<div class="sx-kpi-head"><span class="sx-kpi-name">{html_escape(label)}</span>'
+              f'<span class="sx-icon-pill">{svg}</span></div>'
+              f'<div class="sx-kpi-value">{html_escape(str(value))}</div>{tag}</div>')
+    st.markdown(markup, unsafe_allow_html=True)
+
+
+
+
+def sales_trend_card(months, revenue_by_month):
+    """Gráfico SVG responsivo e legível. Dados reais; sem séries fictícias."""
+    from math import ceil, log10
+    values = [max(0.0, float(revenue_by_month.get(m, 0))) for m in months]
+    if not months:
+        months, values = [datetime.now().strftime("%Y-%m")], [0.0]
+    width, height = 820, 300
+    left, right, top, bottom = 62, 26, 22, 50
+    inner_w = width - left - right
+    baseline = height - bottom
+    inner_h = baseline - top
+    data_max = max(values) if values else 0
+    # Escala arredondada: os intervalos mantêm-se legíveis mesmo com um único mês.
+    if data_max <= 0:
+        step = 1.0
+    else:
+        raw_step = data_max / 5
+        base = 10 ** int(log10(raw_step))
+        step = next((k * base for k in (1, 2, 2.5, 5, 10) if k * base >= raw_step), 10 * base)
+    ceiling = step * 5
+    x = [left + ((idx + .5) / len(values) * inner_w) for idx in range(len(values))]
+    y = [baseline - (v / ceiling * inner_h) for v in values]
+    pts = list(zip(x, y))
+    def curve(points):
+        if not points: return ""
+        if len(points) == 1:
+            return f"M {points[0][0]:.2f} {points[0][1]:.2f}"
+        path = f"M {points[0][0]:.2f} {points[0][1]:.2f}"
+        for i in range(len(points) - 1):
+            p0 = points[max(0, i-1)]
+            p1 = points[i]
+            p2 = points[i+1]
+            p3 = points[min(len(points)-1, i+2)]
+            # Catmull–Rom -> curvas cúbicas suaves, com tensão moderada.
+            c1x = p1[0]+(p2[0]-p0[0])/6
+            c1y = p1[1]+(p2[1]-p0[1])/6
+            c2x = p2[0]-(p3[0]-p1[0])/6
+            c2y = p2[1]-(p3[1]-p1[1])/6
+            # Não deixar a interpolação ultrapassar os valores reais entre dois pontos.
+            lo, hi = sorted((p1[1], p2[1]))
+            c1y = min(hi, max(lo, c1y))
+            c2y = min(hi, max(lo, c2y))
+            path += f" C {c1x:.2f},{c1y:.2f} {c2x:.2f},{c2y:.2f} {p2[0]:.2f},{p2[1]:.2f}"
+        return path
+    line = curve(pts)
+    if len(pts) == 1:
+        line += f" L {width-right:.2f},{pts[0][1]:.2f}"
+    area = f"{line} L {width-right:.2f},{baseline:.2f} L {left:.2f},{baseline:.2f} Z"
+    def euro_axis(v):
+        if v >= 1000:
+            return f"{v/1000:.1f}k" if v % 1000 else f"{v/1000:.0f}k"
+        return f"{v:g}"
+    lines = []
+    for i in range(6):
+        yy = baseline-i*inner_h/5
+        lines.append(f'<line class="sx-chart-grid" x1="{left}" y1="{yy:.2f}" x2="{width-right}" y2="{yy:.2f}"/>')
+        lines.append(f'<text class="sx-chart-axis" x="{left-12}" y="{yy+4:.2f}" text-anchor="end">{euro_axis(step*i)} €</text>')
+    labels = {'01':'jan','02':'fev','03':'mar','04':'abr','05':'mai','06':'jun','07':'jul','08':'ago','09':'set','10':'out','11':'nov','12':'dez'}
+    for xx,m in zip(x,months):
+        short=labels.get(m[-2:],m[-2:])
+        lines.append(f'<text class="sx-chart-axis" x="{xx:.2f}" y="{baseline+27}" text-anchor="middle">{short}</text>')
+    months_markup = ''.join(lines)
+    points_markup=''.join(
+        f'<circle cx="{xx:.2f}" cy="{yy:.2f}" r="5.3" fill="#ffb35d" stroke="#151a2c" stroke-width="2.5"><title>{html_escape(m)}: {html_escape(money_eur(v))}</title></circle>'
+        for xx,yy,m,v in zip(x,y,months,values)
+    )
+    selected_total = money_eur(sum(values))
+    html = f'''<section class="sx-chart-card" aria-label="Evolução das vendas aprovadas sem IVA">
+    <div class="sx-chart-head"><div><div class="sx-chart-heading">Evolução de vendas</div>
+    <div class="sx-chart-caption">Vendas aprovadas · sem IVA · {len(months)} meses</div></div>
+    <div class="sx-chart-legend"><span class="sx-legend-dot" style="--legend:#ff9343"></span>Vendas</div></div>
+    <div class="sx-chart-body"><svg viewBox="0 0 {width} {height}" role="img" aria-label="Gráfico de vendas mensais">
+    <defs><linearGradient id="sxSalesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff9c39" stop-opacity=".48"/><stop offset="60%" stop-color="#ff4b73" stop-opacity=".14"/><stop offset="100%" stop-color="#ff3273" stop-opacity="0"/></linearGradient>
+    <linearGradient id="sxSalesStroke" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ff9e30"/><stop offset="65%" stop-color="#ff6a52"/><stop offset="100%" stop-color="#ff2c80"/></linearGradient>
+    <filter id="sxSalesGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    {months_markup}<path class="sx-chart-area" d="{area}" fill="url(#sxSalesFill)"/><path d="{line}" stroke="url(#sxSalesStroke)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#sxSalesGlow)"/>{points_markup}</svg></div>
+    <div class="sx-chart-note">Total no gráfico: <strong style="color:#e8ecf7">{html_escape(selected_total)}</strong> · Passe o cursor sobre os pontos para consultar cada mês.</div>
+    </section>'''
+    st.markdown(html,unsafe_allow_html=True)
+
+
+def status_donut_card(state_counts):
+    """Donut de distribuição real dos estados, sem dados de exemplo."""
+    from math import pi
+    color_map = {"em_analise": "#ffbc56", "aprovado": "#3ada9d", "instalado": "#63acfb", "rejeitado": "#fe6683"}
+    total = sum(int(state_counts.get(key, 0)) for key in STATUS_LABELS)
+    radius, circumference = 76, 2*pi*76
+    used, arcs, legend = 0.0, [], []
+    for key in ("aprovado","em_analise","instalado","rejeitado"):
+        count = int(state_counts.get(key, 0))
+        color = color_map[key]
+        portion = (count / total) if total else 0
+        if count:
+            dash = portion * circumference
+            arcs.append(f'<circle cx="110" cy="110" r="{radius}" fill="none" stroke="{color}" stroke-width="19" stroke-linecap="round" transform="rotate(-90 110 110)" stroke-dasharray="{max(0,dash-5):.3f} {circumference:.3f}" stroke-dashoffset="{-used:.3f}"><title>{STATUS_LABELS[key]}: {count}</title></circle>')
+        used += portion*circumference
+        legend.append(f'<div class="sx-donut-item"><span class="sx-donut-label"><span class="sx-legend-dot" style="--legend:{color}"></span>{html_escape(STATUS_LABELS[key])}</span><span class="sx-donut-count">{count}</span></div>')
+    markup=f'''<section class="sx-chart-card" aria-label="Distribuição dos estados dos projetos">
+    <div class="sx-chart-head"><div><div class="sx-chart-heading">Estado dos projetos</div>
+    <div class="sx-chart-caption">Distribuição de todo o histórico</div></div><div class="sx-chart-accent"></div></div>
+    <div class="sx-donut-flex"><svg viewBox="0 0 220 220" role="img" aria-label="Distribuição dos {total} projetos">
+      <circle cx="110" cy="110" r="{radius}" fill="none" stroke="rgba(255,255,255,.075)" stroke-width="19"/>{''.join(arcs)}
+      <text class="sx-donut-center" x="110" y="108">{total}</text><text class="sx-donut-center-caption" x="110" y="130">projetos</text></svg>
+    <div class="sx-donut-legend">{''.join(legend)}</div></div>
+    <div class="sx-chart-note">Contagem por situação comercial; apenas aprovados e instalados entram nas vendas.</div>
+    </section>'''
+    st.markdown(markup,unsafe_allow_html=True)
 
 
 def render_dashboard():
@@ -680,11 +877,11 @@ def render_dashboard():
     profit=sum(profits,Decimal("0"))
 
     st.markdown('<div class="sx-section">Resumo comercial</div>',unsafe_allow_html=True)
-    c1,c2,c3=st.columns(3)
+    c1,c2,c3=st.columns(3, gap="large")
     with c1:kpi_card("Projetos aprovados",str(len(approved)),"Aprovados no período", "approved")
     with c2:kpi_card("Clientes cadastrados",str(len(clients)),client_detail,"clients")
     with c3:kpi_card("Potência fotovoltaica aprovada",f"{project_kwp:,.2f} kWp".replace(",","X").replace(".",",").replace("X","."),f"Instalados no período: {installed_kwp:.2f} kWp", "solar")
-    c4,c5,c6=st.columns(3)
+    c4,c5,c6=st.columns(3, gap="large")
     with c4:kpi_card("Vendas aprovadas (sem IVA)",money_eur(sales_net),"Não são recebimentos", "sales")
     with c5:kpi_card("IVA das propostas aprovadas",money_eur(iva),"Estimativa; não é IVA a pagar", "tax")
     with c6:kpi_card("Lucro bruto estimado",money_eur(profit) if profits else "—",(f"{n_unknown} proposta(s) sem custos históricos" if n_unknown else "Custos diretos deduzidos"),"profit")
@@ -699,20 +896,12 @@ def render_dashboard():
         m=report_month(q.get("approved_at"))
         if q.get("status") in ("aprovado","instalado") and m in revenue_by_month:
             revenue_by_month[m]+=float(summaries[q["id"]]["net"])
-    c_left,c_right=st.columns([1.65,1])
-    with c_left:
-        with st.container(border=True):
-            st.markdown("**Vendas aprovadas · sem IVA (€)**")
-            if any(revenue_by_month.values()):
-                st.bar_chart(pd.DataFrame({"Mês":list(revenue_by_month),"Vendas (€)":list(revenue_by_month.values())}).set_index("Mês"),height=270,x_label="Mês",y_label="€")
-                st.caption("Meses representados na sequência: "+", ".join(months))
-            else:st.info("Ainda não há orçamentos aprovados neste período.")
-    with c_right:
-        with st.container(border=True):
-            st.markdown("**Estado dos projetos · total histórico**")
-            state_counts={status:sum(q.get("status", "em_analise")==status for q in quotes) for status in STATUS_LABELS}
-            st.bar_chart(pd.DataFrame({"Estado":[STATUS_LABELS[k] for k in state_counts],"Projetos":list(state_counts.values())}).set_index("Estado"),height=270)
-            st.caption("Apenas os projetos marcados como aprovados contam como vendas.")
+    state_counts={status:sum(q.get("status", "em_analise")==status for q in quotes) for status in STATUS_LABELS}
+    chart_left,chart_right=st.columns([1.68,1],gap="large")
+    with chart_left:
+        sales_trend_card(months,revenue_by_month)
+    with chart_right:
+        status_donut_card(state_counts)
 
     st.markdown('<div class="sx-section">Fluxo de caixa e execução</div>',unsafe_allow_html=True)
     paid=Decimal("0")
@@ -744,12 +933,10 @@ with st.sidebar:
         st.markdown("### SOLAR X")
     pages = ["Visão Geral", "Novo Orçamento", "Clientes", "Equipamentos", "Utilizadores", "Histórico e Requisições"]
     page = st.radio("Navegação", pages, label_visibility="collapsed", key="sx_page")
-    st.divider()
-    st.caption("SOLARX  •  Energy Business")
-    if SERVER_KEY:
-        st.caption("● Registo privado de pagamentos ativo")
-    else:
-        st.caption("● A usar chave pública legada")
+    st.markdown('<div class="sx-sidebar-footer"><div class="sx-sidebar-mini">SOLARX · Energy Business</div>'
+                + ('<div class="sx-sidebar-health"><i></i>Ligação financeira configurada</div>'
+                   if SERVER_KEY else '<div class="sx-sidebar-health">Ligação financeira não configurada</div>')
+                + '</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="sx-topline"></div>', unsafe_allow_html=True)
 if not require_financial_schema():
@@ -763,8 +950,8 @@ if page == "Visão Geral":
 # TAB 1: NOVO ORÇAMENTO
 if page == "Novo Orçamento":
     st.markdown('<div class="sx-heading">Novo Orçamento</div><div class="sx-subtitle">Prepare a proposta e calcule equipamentos, instalação e IVA.</div>',unsafe_allow_html=True)
-    st.subheader("1. Dados Gerais")
-    col1, col2, col3 = st.columns([1, 2, 2])
+    st.markdown('<div class="sx-section">01 · Dados gerais</div>',unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 2], gap="large")
     
     clients_list = get_clients()
     client_options = {f"{c['number']:04d} - {c['name']}": c for c in clients_list}
@@ -793,7 +980,7 @@ if page == "Novo Orçamento":
     if selected_client:
         st.info(f"**NIF:** {selected_client.get('nif', '')} | **Telemóvel:** {selected_client.get('phone', '')} | **E-mail:** {selected_client.get('email', '')} | **Morada:** {selected_client.get('address', '')}")
 
-    st.subheader("2. Equipamentos e Serviços (Margem Automática +15%)")
+    st.markdown('<div class="sx-section">02 · Equipamentos e serviços <span class="sx-mini-note">· Margem automática 15%</span></div>',unsafe_allow_html=True)
     products_list = get_products()
     product_options = {f"{p.get('ref') or ''} - {p['description']}": p for p in products_list}
 
@@ -864,7 +1051,7 @@ if page == "Novo Orçamento":
                 "panel_wp": cents(prod.get("panel_wp") or 600) if prod.get("is_solar_panel") else None
             })
 
-    st.subheader("3. Instalação, IVA e condições")
+    st.markdown('<div class="sx-section">03 · Instalação, IVA e condições</div>',unsafe_allow_html=True)
     st.caption("Escolha a regra comercial de instalação. Pode preservar o cálculo antigo (custo + 20%) ou definir um preço totalmente manual.")
     installation_mode = st.radio(
         "Como calcular a instalação?",
@@ -1141,7 +1328,7 @@ if page == "Clientes":
             disabled=["id", "number"]
         )
 
-        if st.button("Salvar Alterações de Clientes", disabled=bool(pending)):
+        if st.button("Salvar Alterações de Clientes", type="primary", disabled=bool(pending)):
             try:
                 original_rows = editor_rows(clients_df)
                 edited_rows = editor_rows(edited_clients)
@@ -1224,7 +1411,7 @@ if page == "Clientes":
                 c_postal = st.text_input("Código Postal")
                 c_email = st.text_input("E-mail")
             
-            if st.form_submit_button("Guardar Cliente"):
+            if st.form_submit_button("Guardar Cliente", type="primary"):
                 if not c_name:
                     st.error("Nome é obrigatório!")
                 else:
@@ -1249,7 +1436,7 @@ if page == "Equipamentos":
     prods_df = get_products()
     if prods_df is not None:
         edited_prods = st.data_editor(prods_df, key="prods_editor", use_container_width=True, num_rows="dynamic", disabled=["id"])
-        if st.button("Salvar Alterações de Equipamentos"):
+        if st.button("Salvar Alterações de Equipamentos", type="primary"):
             try:
                 original_ids = {item["id"] for item in prods_df if "id" in item}
                 clean_product_rows = editor_rows(edited_prods)
@@ -1298,7 +1485,7 @@ if page == "Equipamentos":
             venda_sugerida = sale_price(p_cost, Decimal(str(p_margin)))
             st.info(f"Preço de Venda Calculado (+{p_margin*100:.0f}%): **{money(venda_sugerida)} €**")
 
-            if st.form_submit_button("Guardar Equipamento"):
+            if st.form_submit_button("Guardar Equipamento", type="primary"):
                 if not p_desc:
                     st.error("Descrição é obrigatória!")
                 else:
@@ -1350,7 +1537,7 @@ if page == "Utilizadores":
             disabled=["id"]
         )
 
-        if st.button("Salvar Alterações de Utilizadores"):
+        if st.button("Salvar Alterações de Utilizadores", type="primary"):
             try:
                 original_rows = editor_rows(users_data)
                 edited_rows = editor_rows(edited_users)
@@ -1405,7 +1592,7 @@ if page == "Utilizadores":
     with st.expander("➕ Cadastrar Novo Utilizador", expanded=not bool(users_data)):
         with st.form("form_user"):
             u_name = st.text_input("Nome do Utilizador *")
-            if st.form_submit_button("Guardar Utilizador"):
+            if st.form_submit_button("Guardar Utilizador", type="primary"):
                 clean_name = u_name.strip()
                 if not clean_name:
                     st.error("O nome é obrigatório!")
@@ -1460,6 +1647,28 @@ if page == "Histórico e Requisições":
         if hist_query.strip() and hist_query.strip().casefold() not in (str(q.get("proposal"))+" "+qname).casefold():continue
         shown.append(q)
     st.caption(f"{len(shown)} proposta(s) encontradas")
+    if shown:
+        # Uma grelha visual compacta; todos os formulários operacionais continuam
+        # disponíveis nos expansores abaixo, sem duplicar widgets nem ações.
+        gallery = []
+        for item in shown[:8]:
+            s = item.get("status") or "em_analise"
+            cls = "sx-tag" if s in ("aprovado", "instalado") else ("sx-tag bad" if s == "rejeitado" else "sx-tag warn")
+            who = html_escape(str((item.get("clients") or {}).get("name") or "Cliente desconhecido"))
+            proposal_label = html_escape(str(item.get("proposal") or "—"))
+            value = html_escape(money_eur(item.get("total")))
+            when = html_escape(str(item.get("created_at") or "")[:10])
+            gallery.append(
+                '<div class="sx-history-card"><div class="sx-history-card-top">'
+                f'<div><div class="sx-history-id">Proposta {proposal_label}</div><div class="sx-history-client">{who}</div></div>'
+                f'<div class="sx-history-value">{value}</div></div><div class="sx-history-footer">'
+                f'<span class="{cls}">{html_escape(STATUS_LABELS.get(s, "Em análise"))}</span>'
+                f'<span class="sx-history-date">{when}</span></div></div>'
+            )
+        st.markdown('<div class="sx-section">Resumo dos orçamentos</div><div class="sx-history-grid">'
+                    + ''.join(gallery) + '</div>', unsafe_allow_html=True)
+        st.caption("Abra a proposta abaixo para editar, gerir pagamentos ou emitir a requisição.")
+    st.markdown('<div class="sx-section">Detalhes e gestão</div>', unsafe_allow_html=True)
     for q in shown:
         qid=q["id"]
         qstatus=q.get("status") or "em_analise"
@@ -1488,7 +1697,7 @@ if page == "Histórico e Requisições":
                 new_status=st.selectbox("Estado do projeto",options=list(STATUS_LABELS),index=list(STATUS_LABELS).index(qstatus) if qstatus in STATUS_LABELS else 0,
                     format_func=lambda k:STATUS_LABELS[k],key=f"sx_status_input_{qid}")
                 st.caption("Aprovar regista a data de aprovação; instalar regista a data de conclusão.")
-                submit_status=st.form_submit_button("Guardar estado do projeto")
+                submit_status=st.form_submit_button("Guardar estado do projeto", type="primary")
             if submit_status:
                 try:
                     now=datetime.now().isoformat()
@@ -1513,7 +1722,7 @@ if page == "Histórico e Requisições":
                 inv_number=st.text_input("Número da fatura (se emitida)",value=q.get("invoice_number") or "",key=f"sx_invoice_nr_{qid}")
                 inv_date=st.date_input("Data de faturação",value=(dttm(q.get("invoiced_at")).date() if dttm(q.get("invoiced_at")) else datetime.now().date()),key=f"sx_invoice_date_{qid}")
                 was_invoiced=st.checkbox("Confirmo que a fatura foi efetivamente emitida",value=bool(q.get("invoiced_at")),key=f"sx_invoice_check_{qid}")
-                invoice_submit=st.form_submit_button("Guardar faturação")
+                invoice_submit=st.form_submit_button("Guardar faturação", type="primary")
             if invoice_submit:
                 if was_invoiced and not inv_number.strip():
                     st.error("Informe o número da fatura realmente emitida.")
@@ -1536,7 +1745,7 @@ if page == "Histórico e Requisições":
                     "Potência por painel (Wp)":float(it["panel_wp"]) if it.get("panel_wp") is not None else None,
                 } for it in quote_items]
                 edited_hist=st.data_editor(editor_input,key=f"sx_cost_editor_{qid}",num_rows="fixed",use_container_width=True,disabled=["id","Designação","Quantidade"])
-                if st.button("Guardar custos / potência",key=f"sx_cost_save_{qid}"):
+                if st.button("Guardar custos / potência",type="primary",key=f"sx_cost_save_{qid}"):
                     try:
                         for row in editor_rows(edited_hist):
                             def optional_amount(raw):
@@ -1579,7 +1788,7 @@ if page == "Histórico e Requisições":
                         with pc2:paid_method=st.selectbox("Método de pagamento",list(PAYMENT_LABELS),format_func=lambda m:PAYMENT_LABELS[m],key=f"sx_pay_type_{qid}")
                         with pc3:paid_amount=st.number_input("Montante recebido (€)",min_value=0.01,value=float(remaining),step=10.0,key=f"sx_pay_amount_{qid}")
                         paid_note=st.text_input("Nota do pagamento (opcional)",key=f"sx_pay_note_{qid}")
-                        paid_submit=st.form_submit_button("Registar recebimento")
+                        paid_submit=st.form_submit_button("Registar recebimento", type="primary")
                     if paid_submit:
                         if cents(paid_amount)>remaining:
                             st.error("O montante excede o saldo por receber.")
@@ -1606,7 +1815,7 @@ if page == "Histórico e Requisições":
                     st.warning("O modelo PDF da requisição comporta no máximo 13 linhas; desmarque os itens excedentes.")
             names=[u.get("name") for u in history_users if u.get("name")] or ["Alisson Monteiro"]
             req_user=st.selectbox("Elaborado por",names,key=f"sx_req_user_{qid}")
-            if st.button("Gerar requisição PDF",key=f"sx_req_make_{qid}"):
+            if st.button("Gerar requisição PDF",type="primary",key=f"sx_req_make_{qid}"):
                 if not selected_req:st.warning("Selecione pelo menos um artigo.")
                 elif len(selected_req)>13:st.error("É permitido um máximo de 13 artigos.")
                 else:
