@@ -1822,45 +1822,180 @@ if page == "Histórico e Requisições":
                     except Exception as exc:st.error("Erro ao guardar valores históricos: "+str(exc))
 
             st.markdown("**3. Pagamentos recebidos**")
+            payment_notice_key = f"sx_payment_notice_{qid}"
+            last_payment_notice = st.session_state.pop(payment_notice_key, None)
+            if last_payment_notice:
+                st.success(last_payment_notice)
             try:
-                pay_rows=payments_db.table("quote_payments").select("*").eq("quote_id",qid).order("received_at").execute().data or []
-                pay_error=None
+                pay_rows = (payments_db.table("quote_payments").select("*")
+                            .eq("quote_id", qid).order("received_at").execute().data or [])
+                pay_error = None
             except Exception as exc:
-                pay_error=exc
-                pay_rows=[]
-            total_paid=sum((cents(x.get("amount")) for x in pay_rows),Decimal("0"))
-            remaining=max(Decimal("0"),cents(q.get("total"))-total_paid)
+                pay_error = exc
+                pay_rows = []
+            total_paid = sum((cents(x.get("amount")) for x in pay_rows), Decimal("0"))
+            remaining = max(Decimal("0"), cents(q.get("total")) - total_paid)
             if pay_error:
-                st.warning("Pagamentos indisponíveis. Configure a chave secreta de servidor no Streamlit e execute a migração. "+str(pay_error))
+                st.warning("Pagamentos indisponíveis. Confirme a chave de servidor do Streamlit e a migração. " + str(pay_error))
             else:
-                u,v=st.columns(2)
-                with u:st.metric("Recebido",money_eur(total_paid))
-                with v:st.metric("Por receber",money_eur(remaining))
+                u, v = st.columns(2)
+                with u:
+                    st.metric("Recebido", money_eur(total_paid))
+                with v:
+                    st.metric("Por receber (face à proposta original)", money_eur(remaining))
+                st.caption("O saldo acima compara recebimentos com o valor da proposta original; "
+                           "não indica necessariamente dívida quando o âmbito do serviço foi alterado.")
                 for p in pay_rows:
-                    st.caption(f"{str(p.get('received_at') or '')[:10]} · {PAYMENT_LABELS.get(p.get('method'),p.get('method'))} · {money_eur(p.get('amount'))} · {p.get('note') or ''}")
-                if qstatus not in ("aprovado","instalado"):
+                    st.caption(
+                        f"Registo #{p.get('id')} · {str(p.get('received_at') or '')[:10]} · "
+                        f"{PAYMENT_LABELS.get(p.get('method'), p.get('method'))} · "
+                        f"{money_eur(p.get('amount'))} · {p.get('note') or 'Sem observação'}"
+                    )
+
+                # Corrigir um lançamento indevido sem apagar o orçamento ou outros recebimentos.
+                if pay_rows:
+                    with st.expander("Corrigir um recebimento registado por engano", expanded=False):
+                        st.warning(
+                            "Esta opção elimina apenas um lançamento financeiro selecionado. "
+                            "Antes de corrigir um registo real, confirme o ID, o montante e "
+                            "a observação e guarde uma cópia da informação."
+                        )
+                        payment_map = {p["id"]: p for p in pay_rows if p.get("id") is not None}
+                        if payment_map:
+                            editor_version = st.session_state.get(f"sx_payment_delete_version_{qid}", 0)
+                            chosen_pid = st.selectbox(
+                                "Lançamento a eliminar",
+                                options=list(payment_map),
+                                format_func=lambda pid: (
+                                    f"#{pid} · {str(payment_map[pid].get('received_at') or '')[:10]} · "
+                                    f"{money_eur(payment_map[pid].get('amount'))} · "
+                                    f"{PAYMENT_LABELS.get(payment_map[pid].get('method'), payment_map[pid].get('method'))} · "
+                                    f"{str(payment_map[pid].get('note') or 'Sem observação')[:55]}"
+                                ),
+                                key=f"sx_payment_delete_select_{qid}_{editor_version}",
+                            )
+                            target = payment_map[chosen_pid]
+                            st.info(
+                                f"Será eliminado apenas o registo #{chosen_pid}, no valor de "
+                                f"{money_eur(target.get('amount'))}. Não altera os dados do orçamento."
+                            )
+                            ack = st.checkbox(
+                                "Confirmei que é um lançamento incorreto e que os restantes pagamentos estão certos.",
+                                key=f"sx_payment_delete_ack_{qid}_{editor_version}",
+                            )
+                            phrase = st.text_input(
+                                "Escreva ELIMINAR para confirmar",
+                                key=f"sx_payment_delete_phrase_{qid}_{editor_version}",
+                            )
+                            if st.button(
+                                "Eliminar apenas este recebimento",
+                                type="primary",
+                                disabled=not (ack and phrase == "ELIMINAR"),
+                                key=f"sx_payment_delete_button_{qid}_{editor_version}",
+                            ):
+                                try:
+                                    current = (payments_db.table("quote_payments")
+                                               .select("id,quote_id,amount,received_at,method,note")
+                                               .eq("id", chosen_pid).eq("quote_id", qid)
+                                               .execute().data or [])
+                                    if len(current) != 1:
+                                        raise RuntimeError("Registo alterado ou já eliminado. Recarregue a página.")
+                                    row_now = current[0]
+                                    for field in ("id", "quote_id", "received_at", "method", "note"):
+                                        if row_now.get(field) != target.get(field):
+                                            raise RuntimeError("O lançamento foi alterado. Reveja a seleção.")
+                                    if cents(row_now.get("amount")) != cents(target.get("amount")):
+                                        raise RuntimeError("O valor foi alterado. Reveja a seleção.")
+                                    payments_db.table("quote_payments").delete().eq("id", chosen_pid).eq("quote_id", qid).execute()
+                                    left = (payments_db.table("quote_payments").select("id")
+                                            .eq("id", chosen_pid).eq("quote_id", qid).limit(1).execute().data or [])
+                                    if left:
+                                        raise RuntimeError("O lançamento continua no Supabase. Nenhuma correção confirmada.")
+                                    st.session_state[f"sx_payment_delete_version_{qid}"] = editor_version + 1
+                                    st.session_state[payment_notice_key] = (
+                                        f"Registo #{chosen_pid} eliminado. Os restantes recebimentos foram preservados."
+                                    )
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error("Não foi possível corrigir o recebimento: " + str(exc))
+
+                pending_key = f"sx_pending_similar_payment_{qid}"
+                if qstatus not in ("aprovado", "instalado"):
                     st.caption("Para registar recebimentos, primeiro marque o projeto como Aprovado.")
-                elif remaining>0:
+                elif remaining > 0:
                     with st.form(f"sx_pay_form_{qid}"):
-                        pc1,pc2,pc3=st.columns([1,1,1])
-                        with pc1:paid_date=st.date_input("Data do recebimento",value=datetime.now().date(),key=f"sx_pay_date_{qid}")
-                        with pc2:paid_method=st.selectbox("Método de pagamento",list(PAYMENT_LABELS),format_func=lambda m:PAYMENT_LABELS[m],key=f"sx_pay_type_{qid}")
-                        with pc3:paid_amount=st.number_input("Montante recebido (€)",min_value=0.01,value=float(remaining),step=10.0,key=f"sx_pay_amount_{qid}")
-                        paid_note=st.text_input("Nota do pagamento (opcional)",key=f"sx_pay_note_{qid}")
-                        paid_submit=st.form_submit_button("Registar recebimento", type="primary")
+                        pc1, pc2, pc3 = st.columns([1, 1, 1])
+                        with pc1:
+                            paid_date = st.date_input(
+                                "Data do recebimento", value=datetime.now().date(), key=f"sx_pay_date_{qid}"
+                            )
+                        with pc2:
+                            paid_method = st.selectbox(
+                                "Método de pagamento", list(PAYMENT_LABELS),
+                                format_func=lambda m: PAYMENT_LABELS[m], key=f"sx_pay_type_{qid}"
+                            )
+                        with pc3:
+                            paid_amount = st.number_input(
+                                "Montante recebido (€)", min_value=0.01, value=float(remaining),
+                                step=10.0, key=f"sx_pay_amount_{qid}"
+                            )
+                        paid_note = st.text_input("Nota do pagamento (opcional)", key=f"sx_pay_note_{qid}")
+                        paid_submit = st.form_submit_button("Registar recebimento", type="primary")
                     if paid_submit:
-                        if cents(paid_amount)>remaining:
-                            st.error("O montante excede o saldo por receber.")
+                        amount_dec = cents(paid_amount)
+                        if amount_dec > remaining:
+                            st.error("O montante excede o saldo por receber no orçamento original.")
                         else:
-                            try:
-                                payments_db.table("quote_payments").insert({
-                                    "quote_id":qid,"amount":float(cents(paid_amount)),
-                                    "received_at":paid_date.isoformat(),"method":paid_method,
-                                    "note":paid_note.strip() or None,
-                                }).execute()
-                                st.success("Recebimento registado")
+                            payload = {
+                                "quote_id": qid, "amount": float(amount_dec),
+                                "received_at": paid_date.isoformat(), "method": paid_method,
+                                "note": paid_note.strip() or None,
+                            }
+                            similar = [p for p in pay_rows
+                                       if cents(p.get("amount")) == amount_dec
+                                       and str(p.get("received_at") or "")[:10] == paid_date.isoformat()
+                                       and p.get("method") == paid_method]
+                            if similar:
+                                # Não duplicar automaticamente pagamentos de mesmo valor/data/método.
+                                # Dois pagamentos iguais podem ser legítimos; exigir confirmação extra.
+                                st.session_state[pending_key] = payload
                                 st.rerun()
-                            except Exception as exc:st.error("Erro ao registar pagamento: "+str(exc))
+                            else:
+                                try:
+                                    payments_db.table("quote_payments").insert(payload).execute()
+                                    st.session_state[payment_notice_key] = "Recebimento registado no Supabase."
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error("Erro ao registar pagamento: " + str(exc))
+
+                pending_similar = st.session_state.get(pending_key)
+                if pending_similar:
+                    st.warning(
+                        f"Já existe um pagamento de {money_eur(pending_similar['amount'])}, "
+                        f"em {pending_similar['received_at']}, pelo mesmo método. "
+                        "Confirme se é realmente um SEGUNDO pagamento antes de o gravar."
+                    )
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("Sim, é um segundo pagamento diferente", type="primary",
+                                     key=f"sx_pay_similar_confirm_{qid}"):
+                            try:
+                                rows_now = (payments_db.table("quote_payments")
+                                            .select("amount").eq("quote_id", qid).execute().data or [])
+                                received_now = sum((cents(p.get("amount")) for p in rows_now), Decimal("0"))
+                                left_now = max(Decimal("0"), cents(q.get("total")) - received_now)
+                                if cents(pending_similar["amount"]) > left_now:
+                                    raise RuntimeError("O saldo mudou desde o formulário; reveja os valores.")
+                                payments_db.table("quote_payments").insert(pending_similar).execute()
+                                st.session_state.pop(pending_key, None)
+                                st.session_state[payment_notice_key] = "Segundo recebimento confirmado e registado."
+                                st.rerun()
+                            except Exception as exc:
+                                st.error("Não foi possível guardar: " + str(exc))
+                    with b2:
+                        if st.button("Cancelar lançamento repetido", key=f"sx_pay_similar_cancel_{qid}"):
+                            st.session_state.pop(pending_key, None)
+                            st.rerun()
 
             st.divider()
             st.markdown("**4. Requisição de material**")
