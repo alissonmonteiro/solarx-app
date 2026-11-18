@@ -179,6 +179,17 @@ MARGEM_INSTALACAO = Decimal("0.20")
 START_PROPOSAL = 145
 START_CLIENT = 16
 
+# Utilitário de imagem: tem de ser definido antes de check_password() ser executada.
+def file_to_data_uri(path):
+    try:
+        mime = "image/png" if str(path).lower().endswith(".png") else "image/jpeg"
+        with open(path, "rb") as fh:
+            encoded = base64.b64encode(fh.read()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    except Exception:
+        return ""
+
+
 # --- SISTEMA DE SENHA DE ACESSO COM BOTÃO ENTER ---
 def check_password():
     def password_entered():
@@ -252,15 +263,6 @@ def cents(value):
 
 def money_eur(value):
     return money(value) + " €"
-
-def file_to_data_uri(path):
-    try:
-        mime = "image/png" if str(path).lower().endswith(".png") else "image/jpeg"
-        with open(path, "rb") as fh:
-            encoded = base64.b64encode(fh.read()).decode("ascii")
-        return f"data:{mime};base64,{encoded}"
-    except Exception:
-        return ""
 
 
 def dttm(value):
