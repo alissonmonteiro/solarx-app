@@ -86,6 +86,7 @@ hr{border-color:rgba(231,239,255,.08)!important;}
 .sx-glow{color:#ffbe73;}
 .sx-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:100px;font-size:.70rem;font-weight:700;background:rgba(61,204,138,.14);color:#4de2a7;}
 .sx-tag.warn{background:rgba(255,171,54,.13);color:#ffb74b;}.sx-tag.bad{background:rgba(249,66,100,.15);color:#ff7b94;}
+.sx-tag.installed{background:rgba(91,163,255,.16);color:#75baff;}
 /* KPI: respiro horizontal e vertical, ícones line brancos com brilho subtil */
 [data-testid="stHorizontalBlock"]:has(.sx-kpi){column-gap:1.55rem!important;margin-bottom:1.35rem!important;align-items:stretch;}
 [data-testid="stHorizontalBlock"]:has(.sx-kpi)>[data-testid="stColumn"]{min-width:0!important;}
@@ -1702,7 +1703,7 @@ if page == "Histórico e Requisições":
         gallery = []
         for item in shown[:8]:
             s = item.get("status") or "em_analise"
-            cls = "sx-tag" if s in ("aprovado", "instalado") else ("sx-tag bad" if s == "rejeitado" else "sx-tag warn")
+            cls = "sx-tag installed" if s == "instalado" else ("sx-tag" if s == "aprovado" else ("sx-tag bad" if s == "rejeitado" else "sx-tag warn"))
             who = html_escape(str((item.get("clients") or {}).get("name") or "Cliente desconhecido"))
             proposal_label = html_escape(str(item.get("proposal") or "—"))
             value = html_escape(money_eur(item.get("total")))
@@ -1725,8 +1726,17 @@ if page == "Histórico e Requisições":
         cname=str(client_data.get("name") or "Cliente desconhecido")
         proposal=q.get("proposal")
         label=STATUS_LABELS.get(qstatus,"Em análise")
-        with st.expander(f"Proposta {proposal} · {cname} · {label} · {money_eur(q.get('total'))}"):
-            pill_class = "sx-tag" if qstatus in ("aprovado", "instalado") else ("sx-tag bad" if qstatus=="rejeitado" else "sx-tag warn")
+        # A cor do estado também aparece com o expansor fechado.
+        # A sintaxe :cor[**texto**] é suportada nativamente no rótulo do st.expander.
+        status_color = {
+            "aprovado": "green",
+            "em_analise": "orange",
+            "instalado": "blue",
+            "rejeitado": "red",
+        }.get(qstatus, "orange")
+        colored_status = f":{status_color}[**{label}**]"
+        with st.expander(f"Proposta {proposal} · {cname} · {colored_status} · {money_eur(q.get('total'))}"):
+            pill_class = "sx-tag installed" if qstatus == "instalado" else ("sx-tag" if qstatus == "aprovado" else ("sx-tag bad" if qstatus=="rejeitado" else "sx-tag warn"))
             st.markdown(f'<span class="{pill_class}">{html_escape(label)}</span>',unsafe_allow_html=True)
             st.write(f"**Cliente:** {cname}   |   **Criado:** {str(q.get('created_at') or '')[:10]}   |   **Estado:** {label}")
             if q.get("notes"):st.caption("Observações: "+str(q.get("notes")))
