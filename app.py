@@ -1,5 +1,6 @@
 import os
 import io
+import base64
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import streamlit as st
@@ -26,7 +27,7 @@ html,body,[data-testid="stAppViewContainer"],.stApp{color:#f7f8fc!important;font
 [data-testid="stHeader"]{background:rgba(9,13,24,.82)!important;backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);border-bottom:1px solid rgba(255,255,255,.03);}
 .block-container{max-width:1570px!important;padding-top:4.3rem!important;padding-bottom:5rem!important;padding-left:2.2rem!important;padding-right:2.2rem!important;}
 /* Barra Energy abaixo dos controles hospedados pelo Streamlit */
-.sx-topline{height:9px;border-radius:100px;margin:3px 0 2.2rem;background:linear-gradient(92deg,#ff286e 0%,#ff5c48 55%,#ffa51e 100%);box-shadow:0 5px 24px rgba(255,53,110,.20),0 1px 0 rgba(255,255,255,.18) inset;}
+.sx-topline{height:10px;border-radius:100px;margin:6px 0 2.35rem;background:linear-gradient(92deg,#ff286e 0%,#ff5c48 55%,#ffa51e 100%);box-shadow:0 5px 24px rgba(255,53,110,.20),0 1px 0 rgba(255,255,255,.18) inset;}
 /* Navegação lateral refinada, sem duplicar os controles nativos do radio */
 [data-testid="stSidebar"]{background:linear-gradient(163deg,#171b2e 0%,#121624 56%,#0c101d 100%)!important;border-right:1px solid rgba(223,231,255,.11)!important;}
 [data-testid="stSidebar"]>div:first-child{padding:1.6rem 1.05rem 1rem!important;}
@@ -131,12 +132,30 @@ hr{border-color:rgba(231,239,255,.08)!important;}
 .sx-history-footer{display:flex;align-items:center;justify-content:space-between;margin-top:17px;gap:10px;}
 .sx-history-date{font-size:.72rem;color:#8d9aaf;}
 .sx-soft-card{padding:15px 18px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.027);}
+
+.sx-kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:6px;}
+.sx-kpi-grid .sx-kpi{height:100%;margin:0!important;}
+.sx-kpi.featured{background:linear-gradient(145deg,rgba(255,145,50,.22),rgba(255,39,111,.18) 74%),linear-gradient(145deg,rgba(31,38,61,.90),rgba(16,21,36,.96));border-color:rgba(255,192,148,.22);box-shadow:0 18px 40px rgba(255,78,101,.18),inset 0 1px 0 rgba(255,255,255,.06);}
+.sx-kpi.featured:before{background:radial-gradient(circle at 30% 30%,rgba(255,188,99,.30),transparent 55%);opacity:1;}
+.sx-kpi.featured .sx-kpi-sub{color:#fff0dc;opacity:.95;}
+.sx-kpi.featured .sx-kpi-value{font-size:1.95rem;}
+.sx-flow-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:4px;}
+.sx-flow-tile{border-radius:18px;padding:17px 18px;border:1px solid rgba(216,229,255,.12);background:linear-gradient(145deg,rgba(27,34,57,.82),rgba(13,18,33,.94));min-height:120px;box-shadow:0 10px 30px rgba(0,0,0,.10);}
+.sx-flow-name{font-size:.78rem;color:#aab4c6;font-weight:600;line-height:1.45;}
+.sx-flow-value{font-size:1.5rem;font-weight:760;color:#fff;margin-top:18px;letter-spacing:-.03em;}
+.sx-flow-sub{font-size:.73rem;color:#8e9cb4;line-height:1.45;margin-top:10px;}
+.sx-auth-brand{display:flex;justify-content:center;align-items:center;margin:0 auto 1rem;}
+.sx-auth-brand img{display:block;width:min(100%,270px);height:auto;margin:0 auto;object-fit:contain;}
+.sx-auth-shell{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.sx-auth-card{width:min(100%,460px);margin:0 auto;}
+.sx-auth-footer{max-width:460px;margin-left:auto;margin-right:auto;}
 /* Login premium */
 .sx-auth-label{font-size:1.30rem;font-weight:700;text-align:center;color:#fff;margin:8px 0 3px;letter-spacing:-.02em;}
 .sx-auth-desc{text-align:center;color:#a0abc1;font-size:.87rem;margin:0 0 24px;}
 .sx-auth-footer{text-align:center;color:#8793a8;font-size:.74rem;margin-top:20px;}
-@media(max-width:1000px){.block-container{padding-left:1.35rem!important;padding-right:1.35rem!important;}[data-testid="stHorizontalBlock"]:has(.sx-kpi){column-gap:1rem!important;} .sx-kpi{padding:15px 14px;min-height:150px}.sx-kpi-value{font-size:1.36rem}.sx-kpi-head{margin-bottom:16px}}
-@media(max-width:768px){.block-container{padding:3.8rem .8rem 4.5rem!important;}.sx-topline{height:8px;margin:4px 0 1.55rem;}.sx-heading{font-size:1.55rem;}.sx-subtitle{font-size:.82rem;margin-bottom:1.25rem;}.sx-chart-card{padding:16px 13px;min-height:0;}.sx-chart-body svg{min-height:185px;}.sx-history-grid{grid-template-columns:1fr;gap:10px;}.sx-kpi{min-height:128px;padding:15px 14px;}.sx-kpi-name{font-size:.73rem}.sx-kpi-value{font-size:1.22rem}.sx-kpi-head{margin-bottom:12px}.sx-icon-pill{width:34px;height:34px}.sx-donut-flex{gap:6px}.sx-donut-flex svg{width:48%;flex-basis:48%;}.sx-donut-item{font-size:.72rem;}[data-testid="stSidebar"]{max-width:270px!important;}.sx-chart-body{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,160,97,.36) transparent;}.sx-chart-body svg{width:600px!important;min-width:600px!important;max-height:none!important;min-height:0!important;}}
+@media(max-width:1000px){.block-container{padding-left:1.35rem!important;padding-right:1.35rem!important;}.sx-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}.sx-flow-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}.sx-kpi{padding:15px 14px;min-height:150px}.sx-kpi-value{font-size:1.36rem}.sx-kpi-head{margin-bottom:16px}}
+@media(max-width:768px){.block-container{padding:3.8rem .8rem 4.5rem!important;}.sx-topline{height:8px;margin:4px 0 1.55rem;}.sx-heading{font-size:1.55rem;}.sx-subtitle{font-size:.82rem;margin-bottom:1.25rem;}.sx-chart-card{padding:16px 13px;min-height:0;}.sx-chart-body svg{min-height:185px;}.sx-history-grid{grid-template-columns:1fr;gap:10px;}.sx-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}.sx-kpi-grid .sx-kpi.featured{grid-column:1/-1;min-height:150px;}.sx-kpi-grid .sx-kpi{min-height:138px;padding:15px 14px;}.sx-kpi-name{font-size:.73rem}.sx-kpi-value{font-size:1.22rem}.sx-kpi.featured .sx-kpi-value{font-size:1.85rem}.sx-kpi-head{margin-bottom:12px}.sx-icon-pill{width:34px;height:34px}.sx-donut-flex{gap:8px;flex-direction:column;align-items:center;}.sx-donut-flex svg{width:72%;max-width:220px;flex-basis:auto;}.sx-donut-legend{width:100%;}.sx-donut-item{font-size:.72rem;}[data-testid="stSidebar"]{max-width:270px!important;}.sx-chart-body{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,160,97,.36) transparent;}.sx-chart-body svg{width:560px!important;min-width:560px!important;max-height:none!important;min-height:0!important;}[data-testid="stHorizontalBlock"]:has(.sx-chart-card){display:block!important;}[data-testid="stHorizontalBlock"]:has(.sx-chart-card)>div{width:100%!important;flex:1 1 100%!important;margin-bottom:14px;}.sx-flow-grid{grid-template-columns:1fr;gap:12px;}.sx-auth-brand img{width:min(100%,230px);}.sx-auth-card{width:100%;}}
+@media(max-width:520px){.sx-kpi-grid{grid-template-columns:1fr;}.sx-kpi-grid .sx-kpi.featured{grid-column:auto;}.sx-kpi{min-height:132px;}.sx-auth-label{font-size:1.18rem;}.sx-auth-desc{font-size:.82rem;}.sx-auth-brand{margin-bottom:.7rem;}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -173,13 +192,15 @@ def check_password():
 
     if not st.session_state.get("password_correct", False):
         st.markdown('<div class="sx-topline"></div>', unsafe_allow_html=True)
-        _, auth_center, _ = st.columns([1.05, 1.20, 1.05], gap="large")
+        _, auth_center, _ = st.columns([1.0, 1.18, 1.0], gap="large")
         with auth_center:
+            st.markdown('<div class="sx-auth-shell">', unsafe_allow_html=True)
             auth_logo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo_solarx_mono.png")
             if os.path.isfile(auth_logo):
-                st.image(auth_logo, width=255)
+                st.markdown(f'<div class="sx-auth-brand"><img src="{file_to_data_uri(auth_logo)}" alt="SolarX"></div>', unsafe_allow_html=True)
             else:
-                st.markdown("### SOLAR X")
+                st.markdown('<div class="sx-auth-brand"><h2 style="margin:0;color:white;">SOLAR X</h2></div>', unsafe_allow_html=True)
+            st.markdown('<div class="sx-auth-card">', unsafe_allow_html=True)
             with st.container(border=True):
                 st.markdown('<div class="sx-auth-label">Bem-vindo à SolarX</div>', unsafe_allow_html=True)
                 st.markdown('<div class="sx-auth-desc">Gestão comercial e financeira · Acesso reservado</div>', unsafe_allow_html=True)
@@ -192,7 +213,9 @@ def check_password():
                         st.rerun()
                 if st.session_state.get("password_correct") is False:
                     st.error("Palavra-passe incorreta. Tente novamente.")
+            st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('<div class="sx-auth-footer">SOLARX · Energia inteligente. Futuro sem limites.</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         return False
     return True
 
@@ -229,6 +252,15 @@ def cents(value):
 
 def money_eur(value):
     return money(value) + " €"
+
+def file_to_data_uri(path):
+    try:
+        mime = "image/png" if str(path).lower().endswith(".png") else "image/jpeg"
+        with open(path, "rb") as fh:
+            encoded = base64.b64encode(fh.read()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    except Exception:
+        return ""
 
 
 def dttm(value):
@@ -693,7 +725,7 @@ ICON_SVG = {
 }
 
 
-def kpi_card(label, value, detail, icon="sales", tone=""):
+def kpi_card_html(label, value, detail, icon="sales", tone="", featured=False):
     palettes = {
         "approved": ("#32dca1", "rgba(50,220,161,.14)"),
         "clients": ("#62aafc", "rgba(98,170,252,.14)"),
@@ -706,13 +738,26 @@ def kpi_card(label, value, detail, icon="sales", tone=""):
     svg = f'<svg viewBox="0 0 24 24" class="sx-kpi-icon" aria-hidden="true">{ICON_SVG.get(icon, ICON_SVG["sales"])}</svg>'
     tag = (f'<span class="sx-tag {tone}">{html_escape(detail)}</span>'
            if detail.startswith(("+", "−", "-")) else f'<div class="sx-kpi-sub">{html_escape(detail)}</div>')
-    markup = (f'<div class="sx-kpi" style="--kpi-accent:{accent};--kpi-halo:{halo}">'
-              f'<div class="sx-kpi-head"><span class="sx-kpi-name">{html_escape(label)}</span>'
-              f'<span class="sx-icon-pill">{svg}</span></div>'
-              f'<div class="sx-kpi-value">{html_escape(str(value))}</div>{tag}</div>')
-    st.markdown(markup, unsafe_allow_html=True)
+    classes = "sx-kpi featured" if featured else "sx-kpi"
+    return (f'<article class="{classes}" style="--kpi-accent:{accent};--kpi-halo:{halo}">'
+            f'<div class="sx-kpi-head"><span class="sx-kpi-name">{html_escape(label)}</span>'
+            f'<span class="sx-icon-pill">{svg}</span></div>'
+            f'<div class="sx-kpi-value">{html_escape(str(value))}</div>{tag}</article>')
 
+def kpi_card(label, value, detail, icon="sales", tone="", featured=False):
+    st.markdown(kpi_card_html(label, value, detail, icon=icon, tone=tone, featured=featured), unsafe_allow_html=True)
 
+def render_kpi_grid(cards):
+    st.markdown('<div class="sx-kpi-grid">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+def flow_metric_html(label, value, detail=""):
+    return (f'<article class="sx-flow-tile">'
+            f'<div class="sx-flow-name">{html_escape(label)}</div>'
+            f'<div class="sx-flow-value">{html_escape(str(value))}</div>'
+            f'<div class="sx-flow-sub">{html_escape(detail)}</div></article>')
+
+def render_flow_grid(items):
+    st.markdown('<div class="sx-flow-grid">' + ''.join(items) + '</div>', unsafe_allow_html=True)
 
 
 def sales_trend_card(months, revenue_by_month):
@@ -877,14 +922,15 @@ def render_dashboard():
     profit=sum(profits,Decimal("0"))
 
     st.markdown('<div class="sx-section">Resumo comercial</div>',unsafe_allow_html=True)
-    c1,c2,c3=st.columns(3, gap="large")
-    with c1:kpi_card("Projetos aprovados",str(len(approved)),"Aprovados no período", "approved")
-    with c2:kpi_card("Clientes cadastrados",str(len(clients)),client_detail,"clients")
-    with c3:kpi_card("Potência fotovoltaica aprovada",f"{project_kwp:,.2f} kWp".replace(",","X").replace(".",",").replace("X","."),f"Instalados no período: {installed_kwp:.2f} kWp", "solar")
-    c4,c5,c6=st.columns(3, gap="large")
-    with c4:kpi_card("Vendas aprovadas (sem IVA)",money_eur(sales_net),"Não são recebimentos", "sales")
-    with c5:kpi_card("IVA das propostas aprovadas",money_eur(iva),"Estimativa; não é IVA a pagar", "tax")
-    with c6:kpi_card("Lucro bruto estimado",money_eur(profit) if profits else "—",(f"{n_unknown} proposta(s) sem custos históricos" if n_unknown else "Custos diretos deduzidos"),"profit")
+    dashboard_cards = [
+        kpi_card_html("Vendas aprovadas (sem IVA)", money_eur(sales_net), "Não são recebimentos", "sales", featured=True),
+        kpi_card_html("Projetos aprovados", str(len(approved)), "Aprovados no período", "approved"),
+        kpi_card_html("Clientes cadastrados", str(len(clients)), client_detail, "clients"),
+        kpi_card_html("Potência fotovoltaica aprovada", f"{project_kwp:,.2f} kWp".replace(",","X").replace(".",",").replace("X","."), f"Instalados no período: {installed_kwp:.2f} kWp", "solar"),
+        kpi_card_html("IVA das propostas aprovadas", money_eur(iva), "Estimativa; não é IVA a pagar", "tax"),
+        kpi_card_html("Lucro bruto estimado", money_eur(profit) if profits else "—", (f"{n_unknown} proposta(s) sem custos históricos" if n_unknown else "Custos diretos deduzidos"), "profit"),
+    ]
+    render_kpi_grid(dashboard_cards)
 
     st.markdown('<div class="sx-section">Evolução e distribuição</div>',unsafe_allow_html=True)
     if selected_months is None:
@@ -909,10 +955,11 @@ def render_dashboard():
         paid=sum((cents(p.get("amount")) for p in all_payments if in_period(p.get("received_at"))),Decimal("0"))
     billed=sum((cents(q.get("total")) for q in quotes if q.get("invoiced_at") and in_period(q.get("invoiced_at"))),Decimal("0"))
     open_balance=sum((max(Decimal("0"),cents(q.get("total"))-sum((cents(p.get("amount")) for p in (all_payments or []) if p.get("quote_id")==q["id"]),Decimal("0"))) for q in quotes if q.get("status") in ("aprovado","instalado")),Decimal("0"))
-    a,b,c=st.columns(3)
-    with a:st.metric("Pagamentos registados no período",money_eur(paid) if all_payments is not None else "Indisponível")
-    with b:st.metric("Orçamentos faturados no período",money_eur(billed))
-    with c:st.metric("Saldo por receber (projetos ativos)",money_eur(open_balance) if all_payments is not None else "Indisponível")
+    render_flow_grid([
+        flow_metric_html("Pagamentos registados no período", money_eur(paid) if all_payments is not None else "Indisponível", "Recebimentos efetivos já registados"),
+        flow_metric_html("Orçamentos faturados no período", money_eur(billed), "Valores com fatura emitida"),
+        flow_metric_html("Saldo por receber (projetos ativos)", money_eur(open_balance) if all_payments is not None else "Indisponível", "Diferença entre propostas ativas e pagamentos"),
+    ])
     if all_payments is None:
         st.warning("A tabela quote_payments não está acessível. Configure SUPABASE_SERVICE_ROLE_KEY nos Secrets do Streamlit e confirme a migração SQL.")
     if n_unknown:
